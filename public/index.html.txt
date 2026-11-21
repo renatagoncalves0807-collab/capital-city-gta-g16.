@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Capital City | Grupo 16 — Quiz 3D de Capital Próprio</title>
+  <style>
+    /* PALETA OFICIAL CAPITAL CITY | GRUPO 16 */
+    :root {
+      --preto-asfalto: #111318;
+      --azul-noite: #1A2F4B;
+      --amarelo-capital: #F4C414;
+      --laranja: #F27D16;
+      --branco-quente: #F7F3E9;
+      --cinza-aco: #6B7684;
+      --verde: #27AE60;
+      --vermelho: #E53935;
+
+      --hud-glass: rgba(17, 19, 24, 0.72);
+      --hud-navy: rgba(26, 47, 75, 0.78);
+      --hud-border: rgba(107, 118, 132, 0.42);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: var(--preto-asfalto);
+      color: var(--branco-quente);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      touch-action: none;
+    }
+
+    /* Mundo 3D ocupa sempre 100% do ecrã sem zonas cinzentas */
+    #scene-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      z-index: 1;
+      background: var(--preto-asfalto);
+    }
+
+    #scene-container canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Vinheta de consequência (vermelho em erro / verde em acerto) */
+    #screen-fx {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    #screen-fx.fx-fail {
+      opacity: 1;
+      background: radial-gradient(circle, transparent 42%, rgba(229, 57, 53, 0.55) 100%);
+    }
+
+    #screen-fx.fx-win {
+      opacity: 1;
+      background: radial-gradient(circle, transparent 52%, rgba(39, 174, 96, 0.42) 100%);
+    }
+
+    .ui-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      padding: calc(8px + var(--safe-top)) calc(10px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(10px + var(--safe-left));
+    }
+
+    .hidden { display: none !important; }
+
+    /* Estilo limpo GTA V */
+    .gta-panel {
+      pointer-events: auto;
+      background: var(--hud-glass);
+      border: 1px solid var(--hud-border);
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.48);
+    }
+
+    /* ==================== 1. ECRÃ INICIAL ==================== */
+    #screen-home {
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(180deg, rgba(17, 19, 24, 0.35), rgba(17, 19, 24, 0.72));
+      overflow-y: auto;
+      pointer-events: auto;
+    }
+
+    .home-card {
+      width: 100%;
+      max-width: 440px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      border-top: 3px solid var(--amarelo-capital);
+    }
+
+    .home-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .cover-thumb {
+      width: 88px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 2px solid var(--amarelo-capital);
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      margin: 0;
+      font-size: 1.48rem;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      color: var(--amarelo-capital);
+      text-transform: uppercase;
+      line-height: 1.05;
+    }
+
+    .brand-sub {
+      margin: 3px 0 0;
+      font-size: 0.78rem;
+      color: var(--branco-quente);
+      opacity: 0.85;
+      line-height: 1.3;
+    }
+
+    .tags-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(26, 47, 75, 0.85);
+      border: 1px solid var(--hud-border);
+      color: var(--branco-quente);
+    }
+
+    .tag.accent {
+      background: rgba(244, 196, 20, 0.16);
+      border-color: rgba(244, 196, 20, 0.55);
+      color: var(--amarelo-capital);
+    }
+
+    .car-picker {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .car-swatch {
+      pointer-events: auto;
+      background: rgba(17, 19, 24, 0.8);
+      border: 1px solid var(--hud-border);
+      border-radius: 7px;
+      padding: 6px 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--branco-quente);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: border-color 0.15s ease, transform 0.1s ease;
+    }
+
+    .car-swatch.selected {
+      border-color: var(--amarelo-capital);
+      background: rgba(244, 1
