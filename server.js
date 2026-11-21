@@ -18,7 +18,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const ASSETS_DIR = path.join(PUBLIC_DIR, 'assets');
 
 // Regras oficiais sincronizadas pelo servidor
-const QUESTION_DURATION_SECONDS = 15;
+const QUESTION_DURATION_SECONDS = 20;
 const QUESTION_DURATION_MS = QUESTION_DURATION_SECONDS * 1000;
 const BASE_POINTS = 1000;
 const MAX_SPEED_BONUS = 500;
