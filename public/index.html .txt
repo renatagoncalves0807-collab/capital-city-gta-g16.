@@ -1,0 +1,2960 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Capital City | Grupo 16 — Quiz 3D de Capital Próprio</title>
+  <style>
+    /* PALETA OFICIAL CAPITAL CITY | GRUPO 16 */
+    :root {
+      --preto-asfalto: #111318;
+      --azul-noite: #1A2F4B;
+      --amarelo-capital: #F4C414;
+      --laranja: #F27D16;
+      --branco-quente: #F7F3E9;
+      --cinza-aco: #6B7684;
+      --verde: #27AE60;
+      --vermelho: #E53935;
+
+      --hud-glass: rgba(17, 19, 24, 0.72);
+      --hud-navy: rgba(26, 47, 75, 0.78);
+      --hud-border: rgba(107, 118, 132, 0.42);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: var(--preto-asfalto);
+      color: var(--branco-quente);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      touch-action: none;
+    }
+
+    /* Mundo 3D ocupa sempre 100% do ecrã sem zonas cinzentas */
+    #scene-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      z-index: 1;
+      background: var(--preto-asfalto);
+    }
+
+    #scene-container canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Vinheta de consequência (vermelho em erro / verde em acerto) */
+    #screen-fx {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    #screen-fx.fx-fail {
+      opacity: 1;
+      background: radial-gradient(circle, transparent 42%, rgba(229, 57, 53, 0.55) 100%);
+    }
+
+    #screen-fx.fx-win {
+      opacity: 1;
+      background: radial-gradient(circle, transparent 52%, rgba(39, 174, 96, 0.42) 100%);
+    }
+
+    .ui-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      padding: calc(8px + var(--safe-top)) calc(10px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(10px + var(--safe-left));
+    }
+
+    .hidden { display: none !important; }
+
+    /* Estilo limpo GTA V (escuro, fino, sem grandes painéis coloridos) */
+    .gta-panel {
+      pointer-events: auto;
+      background: var(--hud-glass);
+      border: 1px solid var(--hud-border);
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.48);
+    }
+
+    /* ==================== 1. ECRÃ INICIAL ==================== */
+    #screen-home {
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(180deg, rgba(17, 19, 24, 0.35), rgba(17, 19, 24, 0.72));
+      overflow-y: auto;
+      pointer-events: auto;
+    }
+
+    .home-card {
+      width: 100%;
+      max-width: 440px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      border-top: 3px solid var(--amarelo-capital);
+    }
+
+    .home-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Capa GTA discreta e equilibrada */
+    .cover-thumb {
+      width: 88px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 2px solid var(--amarelo-capital);
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      margin: 0;
+      font-size: 1.48rem;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      color: var(--amarelo-capital);
+      text-transform: uppercase;
+      line-height: 1.05;
+    }
+
+    .brand-sub {
+      margin: 3px 0 0;
+      font-size: 0.78rem;
+      color: var(--branco-quente);
+      opacity: 0.85;
+      line-height: 1.3;
+    }
+
+    .tags-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(26, 47, 75, 0.85);
+      border: 1px solid var(--hud-border);
+      color: var(--branco-quente);
+    }
+
+    .tag.accent {
+      background: rgba(244, 196, 20, 0.16);
+      border-color: rgba(244, 196, 20, 0.55);
+      color: var(--amarelo-capital);
+    }
+
+    /* Seleção discreta de veículo inspirado em GTA V */
+    .car-picker {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .car-swatch {
+      pointer-events: auto;
+      background: rgba(17, 19, 24, 0.8);
+      border: 1px solid var(--hud-border);
+      border-radius: 7px;
+      padding: 6px 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--branco-quente);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: border-color 0.15s ease, transform 0.1s ease;
+    }
+
+    .car-swatch.selected {
+      border-color: var(--amarelo-capital);
+      background: rgba(244, 196, 20, 0.14);
+    }
+
+    .swatch-dot {
+      width: 24px;
+      height: 8px;
+      border-radius: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+    }
+
+    .city-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+    }
+
+    .city-strip img {
+      width: 100%;
+      height: 32px;
+      object-fit: cover;
+      border-radius: 5px;
+      border: 1px solid var(--hud-border);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 110px;
+      gap: 8px;
+    }
+
+    label.field-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: var(--cinza-aco);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 11px;
+      border-radius: 7px;
+      border: 1px solid var(--hud-border);
+      background: rgba(17, 19, 24, 0.92);
+      color: var(--branco-quente);
+      font-size: 0.94rem;
+      font-weight: 700;
+      outline: none;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--amarelo-capital);
+    }
+
+    .btn {
+      pointer-events: auto;
+      border: none;
+      border-radius: 7px;
+      padding: 11px 14px;
+      font-size: 0.88rem;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform 0.1s ease, filter 0.15s ease, opacity 0.15s ease;
+    }
+
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.42; cursor: not-allowed; }
+
+    .btn-capital {
+      background: linear-gradient(135deg, var(--amarelo-capital), var(--laranja));
+      color: var(--preto-asfalto);
+    }
+
+    .btn-steel {
+      background: rgba(26, 47, 75, 0.88);
+      color: var(--branco-quente);
+      border: 1px solid var(--hud-border);
+    }
+
+    .btn-green {
+      background: var(--verde);
+      color: #fff;
+    }
+
+    .error-msg {
+      font-size: 0.8rem;
+      color: #fecaca;
+      background: rgba(229, 57, 53, 0.22);
+      border: 1px solid var(--vermelho);
+      padding: 7px 10px;
+      border-radius: 7px;
+    }
+
+    /* ==================== 2. ECRÃ DO APRESENTADOR ==================== */
+    #screen-host {
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .host-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 14px;
+      border-left: 3px solid var(--amarelo-capital);
+    }
+
+    .host-lobby-grid {
+      margin: auto;
+      width: 100%;
+      max-width: 800px;
+      display: grid;
+      grid-template-columns: 255px 1fr;
+      gap: 14px;
+      padding: 15px;
+    }
+
+    .qr-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(26, 47, 75, 0.48);
+      border: 1px solid var(--hud-border);
+      text-align: center;
+    }
+
+    .qr-box img {
+      width: 175px;
+      height: 175px;
+      border-radius: 6px;
+      background: var(--branco-quente);
+      padding: 5px;
+    }
+
+    .room-code-big {
+      font-size: 1.95rem;
+      font-weight: 900;
+      letter-spacing: 0.22em;
+      color: var(--amarelo-capital);
+    }
+
+    .trio-banner {
+      width: 100%;
+      height: 76px;
+      object-fit: cover;
+      border-radius: 7px;
+      border: 1px solid var(--hud-border);
+    }
+
+    .players-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    .player-chip {
+      padding: 5px 10px;
+      border-radius: 4px;
+      background: rgba(26, 47, 75, 0.85);
+      border-left: 3px solid var(--amarelo-capital);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .host-mission-panel {
+      margin: 0 auto;
+      width: 100%;
+      max-width: 780px;
+      padding: 12px 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      border-top: 3px solid var(--amarelo-capital);
+    }
+
+    /* ==================== 3. HUD LIMPO DO JOGADOR (ESTILO GTA V) ==================== */
+    #screen-player {
+      justify-content: space-between;
+    }
+
+    .hud-top-wrap {
+      width: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* Barra superior ultra-fina inspirada no GTA V */
+    .gta-status-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 5px 10px;
+      background: rgba(17, 19, 24, 0.62);
+      border: 1px solid rgba(107, 118, 132, 0.35);
+      border-radius: 8px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .driver-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .driver-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      object-fit: cover;
+      border: 1.5px solid var(--amarelo-capital);
+      flex-shrink: 0;
+    }
+
+    .driver-name {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--branco-quente);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .driver-zone {
+      font-size: 0.68rem;
+      color: var(--cinza-aco);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .hud-right-metrics {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .hud-cash-score {
+      font-size: 0.88rem;
+      font-weight: 900;
+      color: var(--verde);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+    }
+
+    .hud-timer-pill {
+      min-width: 44px;
+      text-align: center;
+      padding: 3px 8px;
+      border-radius: 5px;
+      background: rgba(26, 47, 75, 0.88);
+      border: 1px solid var(--amarelo-capital);
+      color: var(--amarelo-capital);
+      font-weight: 900;
+      font-size: 0.84rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hud-timer-pill.urgent {
+      background: rgba(229, 57, 53, 0.35);
+      border-color: var(--vermelho);
+      color: #fff;
+    }
+
+    /* Pergunta limpa integrada na experiência 3D (sem caixas coloridas pesadas) */
+    .mission-hud-block {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .mission-prompt-bar {
+      background: rgba(17, 19, 24, 0.72);
+      border-left: 3px solid var(--amarelo-capital);
+      border-right: 1px solid rgba(107, 118, 132, 0.3);
+      border-radius: 6px;
+      padding: 6px 10px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .mission-meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .timer-line {
+      width: 100%;
+      height: 3px;
+      background: rgba(107, 118, 132, 0.3);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 5px;
+    }
+
+    .timer-line-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, var(--verde), var(--amarelo-capital), var(--laranja));
+      transition: width 0.1s linear;
+    }
+
+    .mission-question-line {
+      margin: 0;
+      font-size: 0.88rem;
+      font-weight: 800;
+      line-height: 1.24;
+      color: var(--branco-quente);
+    }
+
+    /* 3 Etiquetas discretas alinhadas às 3 faixas da estrada */
+    .lane-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+    }
+
+    .lane-chip {
+      pointer-events: auto;
+      background: rgba(17, 19, 24, 0.68);
+      border: 1.5px solid rgba(107, 118, 132, 0.45);
+      border-radius: 6px;
+      padding: 5px 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.14s ease, background 0.14s ease, transform 0.1s ease;
+    }
+
+    .lane-chip.active {
+      border-color: var(--amarelo-capital);
+      background: rgba(26, 47, 75, 0.86);
+      box-shadow: 0 0 14px rgba(244, 196, 20, 0.3);
+    }
+
+    .lane-chip.locked {
+      border-color: var(--laranja);
+      background: rgba(242, 125, 22, 0.25);
+    }
+
+    .lane-key {
+      display: inline-block;
+      font-size: 0.62rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      color: var(--amarelo-capital);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .lane-text {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      line-height: 1.15;
+      color: var(--branco-quente);
+    }
+
+    /* Mensagem discreta estilo GTA no modo exploração */
+    .gta-tip-box {
+      align-self: flex-start;
+      max-width: 320px;
+      background: rgba(17, 19, 24, 0.72);
+      border-left: 3px solid var(--amarelo-capital);
+      padding: 6px 10px;
+      border-radius: 5px;
+      font-size: 0.74rem;
+      color: var(--branco-quente);
+      line-height: 1.3;
+    }
+
+    /* ==================== BASE DO HUD: MINIMAP GTA + JOYSTICK + VELOCÍMETRO + PEDAIS ==================== */
+    .hud-bottom-dock {
+      width: 100%;
+      max-width: 920px;
+      margin: 0 auto;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .left-cluster {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    /* Minimap / Radar estilo GTA V */
+    .gta-minimap {
+      width: 132px;
+      background: rgba(17, 19, 24, 0.84);
+      border: 2px solid var(--cinza-aco);
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+    }
+
+    #minimap-canvas {
+      display: block;
+      width: 128px;
+      height: 76px;
+    }
+
+    .minimap-bars {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      padding: 2px;
+      background: var(--preto-asfalto);
+    }
+
+    .mini-bar-track {
+      height: 4px;
+      background: rgba(107, 118, 132, 0.35);
+    }
+
+    .mini-bar-green {
+      height: 100%;
+      width: 100%;
+      background: var(--verde);
+    }
+
+    .mini-bar-amber {
+      height: 100%;
+      width: 100%;
+      background: var(--amarelo-capital);
+      transition: width 0.1s linear;
+    }
+
+    /* Joystick tátil discreto e translúcido */
+    .joystick-zone {
+      pointer-events: auto;
+      position: relative;
+      width: 112px;
+      height: 112px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(26, 47, 75, 0.32), rgba(17, 19, 24, 0.72));
+      border: 1.5px solid rgba(107, 118, 132, 0.65);
+      touch-action: none;
+    }
+
+    .joystick-marks {
+      position: absolute;
+      inset: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: rgba(247, 243, 233, 0.38);
+      padding: 0 4px;
+      pointer-events: none;
+    }
+
+    .joystick-knob {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 44px;
+      height: 44px;
+      margin-left: -22px;
+      margin-top: -22px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, var(--amarelo-capital), var(--laranja));
+      border: 2px solid var(--branco-quente);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+      pointer-events: none;
+    }
+
+    .right-cluster {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 7px;
+    }
+
+    /* Indicador de velocidade estilo GTA */
+    .speedo-box {
+      background: rgba(17, 19, 24, 0.78);
+      border: 1px solid rgba(107, 118, 132, 0.5);
+      border-right: 3px solid var(--amarelo-capital);
+      border-radius: 6px;
+      padding: 4px 9px;
+      text-align: right;
+      min-width: 102px;
+    }
+
+    .speedo-num {
+      font-size: 1.25rem;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--branco-quente);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .speedo-unit {
+      font-size: 0.62rem;
+      font-weight: 800;
+      color: var(--cinza-aco);
+      margin-left: 3px;
+    }
+
+    .rpm-track {
+      margin-top: 3px;
+      width: 100%;
+      height: 4px;
+      background: rgba(107, 118, 132, 0.35);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .rpm-fill {
+      height: 100%;
+      width: 35%;
+      background: linear-gradient(90deg, var(--verde), var(--amarelo-capital), var(--laranja), var(--vermelho));
+      transition: width 0.08s linear;
+    }
+
+    .btn-car-action {
+      pointer-events: auto;
+      padding: 7px 11px;
+      font-size: 0.72rem;
+      border-radius: 6px;
+      background: rgba(17, 19, 24, 0.8);
+      border: 1px solid var(--cinza-aco);
+      color: var(--branco-quente);
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .btn-car-action.ready {
+      background: var(--amarelo-capital);
+      border-color: var(--amarelo-capital);
+      color: var(--preto-asfalto);
+    }
+
+    .pedals-row {
+      pointer-events: auto;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    /* Botões discretos e funcionais (TRAV. / ACEL.) */
+    .pedal-btn {
+      pointer-events: auto;
+      touch-action: none;
+      border-radius: 10px;
+      color: var(--branco-quente);
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: transform 0.08s ease, background 0.12s ease;
+    }
+
+    .pedal-btn:active, .pedal-btn.pressed {
+      transform: scale(0.94);
+    }
+
+    #btn-brake {
+      width: 62px;
+      height: 68px;
+      background: rgba(229, 57, 53, 0.48);
+      border: 1.5px solid var(--vermelho);
+      font-size: 0.74rem;
+    }
+
+    #btn-accel {
+      width: 76px;
+      height: 88px;
+      background: rgba(39, 174, 96, 0.56);
+      border: 1.5px solid var(--verde);
+      font-size: 0.82rem;
+    }
+
+    .pedal-sub {
+      font-size: 0.58rem;
+      font-weight: 700;
+      opacity: 0.9;
+      margin-top: 2px;
+      text-transform: uppercase;
+    }
+
+    /* ==================== 4. MODAL RESULTADO / CLASSIFICAÇÃO / PÓDIO ==================== */
+    .overlay-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      background: rgba(17, 19, 24, 0.76);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: calc(12px + var(--safe-top)) 12px calc(12px + var(--safe-bottom));
+      pointer-events: auto;
+      overflow-y: auto;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 480px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      text-align: center;
+      border-top: 3px solid var(--amarelo-capital);
+    }
+
+    .status-banner {
+      margin: 0;
+      font-size: 1.55rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .status-banner.win { color: var(--verde); }
+    .status-banner.fail { color: var(--vermelho); }
+    .status-banner.gold { color: var(--amarelo-capital); }
+
+    .points-earned {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--amarelo-capital);
+    }
+
+    .position-callout {
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: rgba(26, 47, 75, 0.88);
+      border: 1px solid var(--amarelo-capital);
+      color: var(--branco-quente);
+      font-weight: 800;
+      font-size: 0.92rem;
+    }
+
+    .top4-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      text-align: left;
+    }
+
+    .top4-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      border-radius: 6px;
+      background: rgba(26, 47, 75, 0.45);
+      border: 1px solid rgba(107, 118, 132, 0.32);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .top4-row.me {
+      background: rgba(244, 196, 20, 0.18);
+      border-color: var(--amarelo-capital);
+    }
+
+    .rank-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      background: var(--cinza-aco);
+      color: var(--preto-asfalto);
+      margin-right: 8px;
+      font-size: 0.76rem;
+      font-weight: 900;
+    }
+
+    .top4-row:nth-child(1) .rank-badge { background: var(--amarelo-capital); }
+    .top4-row:nth-child(2) .rank-badge { background: var(--branco-quente); }
+    .top4-row:nth-child(3) .rank-badge { background: var(--laranja); }
+
+    .explanation-box {
+      font-size: 0.78rem;
+      line-height: 1.35;
+      color: var(--branco-quente);
+      background: rgba(26, 47, 75, 0.55);
+      padding: 8px 10px;
+      border-radius: 6px;
+      text-align: left;
+      border-left: 3px solid var(--amarelo-capital);
+    }
+
+    /* Responsividade iPhone / iPad (vertical e horizontal) */
+    @media (max-width: 720px) {
+      .host-lobby-grid {
+        grid-template-columns: 1fr;
+        max-height: 82dvh;
+        overflow-y: auto;
+      }
+      .qr-box img { width: 145px; height: 145px; }
+    }
+
+    @media (max-height: 520px) {
+      .gta-minimap { width: 106px; }
+      #minimap-canvas { width: 102px; height: 56px; }
+      .joystick-zone { width: 88px; height: 88px; }
+      .joystick-knob { width: 34px; height: 34px; margin-left: -17px; margin-top: -17px; }
+      #btn-brake { width: 54px; height: 56px; }
+      #btn-accel { width: 66px; height: 70px; }
+      .mission-question-line { font-size: 0.78rem; }
+      .lane-text { font-size: 0.66rem; }
+      .left-cluster { flex-direction: row; align-items: flex-end; }
+    }
+  </style>
+</head>
+<body>
+  <!-- CENA 3D FULLSCREEN -->
+  <div id="scene-container"></div>
+  <div id="screen-fx"></div>
+
+  <!-- 1. ECRÃ INICIAL -->
+  <section id="screen-home" class="ui-layer">
+    <div class="gta-panel home-card">
+      <div class="home-head">
+        <img class="cover-thumb" src="/assets/gta-cover.jpg" alt="Capa Capital City" />
+        <div>
+          <h1 class="brand-title">Capital City</h1>
+          <p class="brand-sub"><strong>Grupo 16</strong> · Disciplina de Auditoria<br />Quiz 3D de <strong>Capital Próprio</strong></p>
+        </div>
+      </div>
+
+      <div class="tags-row">
+        <span class="tag accent">7 Missões</span>
+        <span class="tag accent">15 Segundos</span>
+        <span class="tag">3 Faixas</span>
+        <span class="tag">Multijogador</span>
+      </div>
+
+      <!-- Escolha de veículo desportivo (estilo GTA V) -->
+      <div>
+        <label class="field-label">Escolhe o teu veículo</label>
+        <div class="car-picker" id="car-picker">
+          <button type="button" class="car-swatch selected" data-car="red">
+            <span class="swatch-dot" style="background:#E53935;"></span>Super Red
+          </button>
+          <button type="button" class="car-swatch" data-car="silver">
+            <span class="swatch-dot" style="background:linear-gradient(90deg,#cbd5e1,#1A2F4B);"></span>Street M3
+          </button>
+          <button type="button" class="car-swatch" data-car="black">
+            <span class="swatch-dot" style="background:#1c212b;"></span>Stealth GT
+          </button>
+          <button type="button" class="car-swatch" data-car="white">
+            <span class="swatch-dot" style="background:#F7F3E9;"></span>Muscle V8
+          </button>
+        </div>
+      </div>
+
+      <div class="city-strip" aria-label="Cenários urbanos">
+        <img src="/assets/city-day.jpg" alt="Cidade de dia" />
+        <img src="/assets/downtown.jpg" alt="Centro financeiro" />
+        <img src="/assets/hills-car.jpg" alt="Colinas" />
+        <img src="/assets/rain-walk.jpg" alt="Ambiente urbano" />
+      </div>
+
+      <div id="home-error" class="error-msg hidden"></div>
+
+      <div>
+        <label class="field-label" for="input-name">Entrar como participante</label>
+        <div class="form-row">
+          <input id="input-name" type="text" placeholder="O teu nome" maxlength="22" autocomplete="off" />
+          <input id="input-code" type="text" placeholder="CÓDIGO" maxlength="6" style="text-transform:uppercase; text-align:center;" autocomplete="off" />
+        </div>
+      </div>
+
+      <button id="btn-join" class="btn btn-capital">Entrar na Cidade</button>
+      <button id="btn-create-room" class="btn btn-steel">Criar Sala (Apresentador)</button>
+    </div>
+  </section>
+
+  <!-- 2. ECRÃ DO APRESENTADOR -->
+  <section id="screen-host" class="ui-layer hidden">
+    <div class="gta-panel host-bar">
+      <div>
+        <strong style="color:var(--amarelo-capital); font-size:0.98rem; letter-spacing:0.04em;">CAPITAL CITY · GRUPO 16</strong>
+        <div style="font-size:0.74rem; color:var(--branco-quente); opacity:0.8;">Auditoria — Capital Próprio (7 Missões · 15s)</div>
+      </div>
+      <div class="tags-row">
+        <span class="tag accent" id="host-room-pill">SALA: ----</span>
+        <span class="tag" id="host-players-pill">0 Jogadores</span>
+      </div>
+    </div>
+
+    <div id="host-lobby-card" class="gta-panel host-lobby-grid">
+      <div class="qr-box">
+        <div style="font-size:0.7rem; color:var(--branco-quente); font-weight:800; letter-spacing:0.05em;">LÊ O QR CODE OU USA O CÓDIGO</div>
+        <img id="host-qr-img" src="" alt="QR Code da Sala" />
+        <div id="host-code-big" class="room-code-big">----</div>
+        <div id="host-join-url" style="font-size:0.68rem; color:var(--cinza-aco); word-break:break-all;"></div>
+      </div>
+      <div style="display:flex; flex-direction:column; justify-content:space-between; gap:10px;">
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <img class="trio-banner" src="/assets/trio.jpg" alt="Equipa Capital City" />
+          <div style="font-size:0.78rem; font-weight:800; color:var(--amarelo-capital); text-transform:uppercase;">Jogadores na sala:</div>
+          <div id="host-players-list" class="players-list">
+            <span style="font-size:0.8rem; color:var(--cinza-aco);">A aguardar participantes...</span>
+          </div>
+        </div>
+        <button id="btn-host-start" class="btn btn-green">Iniciar Missão 1 de 7</button>
+      </div>
+    </div>
+
+    <div id="host-mission-card" class="gta-panel host-mission-panel hidden">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <span class="tag accent" id="host-mission-counter">Missão 1 de 7</span>
+        <span class="tag" id="host-answer-progress">Respostas: 0 / 0</span>
+        <span class="hud-timer-pill" id="host-timer-badge">15s</span>
+      </div>
+      <div class="timer-line"><div id="host-timer-fill" class="timer-line-fill"></div></div>
+      <h2 id="host-question-text" style="margin:2px 0; font-size:1.1rem; text-align:center;"></h2>
+      <div class="lane-strip">
+        <div class="lane-chip"><span class="lane-key">FAIXA ESQ · A</span><span id="host-opt-0" class="lane-text"></span></div>
+        <div class="lane-chip"><span class="lane-key">FAIXA CENTRO · B</span><span id="host-opt-1" class="lane-text"></span></div>
+        <div class="lane-chip"><span class="lane-key">FAIXA DIR · C</span><span id="host-opt-2" class="lane-text"></span></div>
+      </div>
+      <button id="btn-host-force-next" class="btn btn-steel" style="align-self:center; padding:7px 13px; font-size:0.76rem;">Encerrar Missão Agora</button>
+    </div>
+
+    <div style="height:4px;"></div>
+  </section>
+
+  <!-- 3. HUD INTEGRADO DO JOGADOR (ESTILO GTA V) -->
+  <section id="screen-player" class="ui-layer hidden">
+    <div class="hud-top-wrap">
+      <div class="gta-status-strip">
+        <div class="driver-info">
+          <img class="driver-avatar" src="/assets/trevor.jpg" alt="Condutor" />
+          <div style="min-width:0;">
+            <div id="player-hud-name" class="driver-name">Condutor</div>
+            <div id="player-hud-zone" class="driver-zone">Sala ---- · Avenida Capital</div>
+          </div>
+        </div>
+        <div class="hud-right-metrics">
+          <span id="player-hud-score" class="hud-cash-score">0 PTS</span>
+          <span id="player-timer-badge" class="hud-timer-pill hidden">15s</span>
+        </div>
+      </div>
+
+      <!-- Indicação discreta no modo exploração -->
+      <div id="explore-tip-box" class="gta-tip-box">
+        Usa o joystick para caminhar. Aproxima-te do supercarro para entrares.
+      </div>
+
+      <!-- Pergunta + 3 Faixas discretas (sem painel colorido pesado) -->
+      <div id="player-mission-hud" class="mission-hud-block hidden">
+        <div class="mission-prompt-bar">
+          <div class="mission-meta-row">
+            <span id="player-mission-label" style="color:var(--amarelo-capital);">Missão 1 de 7</span>
+            <span id="player-lane-label" style="color:var(--branco-quente);">Faixa B · Centro · ACEL. para ultrapassar</span>
+          </div>
+          <div class="timer-line"><div id="player-timer-fill" class="timer-line-fill"></div></div>
+          <p id="player-question-text" class="mission-question-line"></p>
+        </div>
+
+        <div class="lane-strip">
+          <div class="lane-chip" data-lane="0" id="lane-card-0">
+            <span class="lane-key">◀ ESQ · A</span>
+            <span class="lane-text" id="player-opt-0"></span>
+          </div>
+          <div class="lane-chip active" data-lane="1" id="lane-card-1">
+            <span class="lane-key">▲ CENTRO · B</span>
+            <span class="lane-text" id="player-opt-1"></span>
+          </div>
+          <div class="lane-chip" data-lane="2" id="lane-card-2">
+            <span class="lane-key">DIR · C ▶</span>
+            <span class="lane-text" id="player-opt-2"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zona Inferior: Minimap GTA + Joystick (Esq.) | Velocímetro + Controlos Discretos (Dir.) -->
+    <div class="hud-bottom-dock">
+      <div class="left-cluster">
+        <div class="gta-minimap" aria-label="Radar da cidade">
+          <canvas id="minimap-canvas" width="128" height="76"></canvas>
+          <div class="minimap-bars">
+            <div class="mini-bar-track"><div class="mini-bar-green"></div></div>
+            <div class="mini-bar-track"><div id="mini-timer-bar" class="mini-bar-amber"></div></div>
+          </div>
+        </div>
+
+        <div id="joystick-zone" class="joystick-zone" aria-label="Joystick de direção">
+          <div class="joystick-marks"><span>◀</span><span>▶</span></div>
+          <div id="joystick-knob" class="joystick-knob"></div>
+        </div>
+      </div>
+
+      <div class="right-cluster">
+        <button id="btn-car-toggle" class="btn-car-action" disabled>Aproxima-te do carro</button>
+
+        <div class="speedo-box">
+          <div>
+            <span id="speedo-value" class="speedo-num">0</span>
+            <span class="speedo-unit">KM/H</span>
+          </div>
+          <div class="rpm-track"><div id="rpm-fill" class="rpm-fill"></div></div>
+        </div>
+
+        <div class="pedals-row">
+          <button id="btn-brake" class="pedal-btn" type="button">
+            <span>TRAV.</span>
+            <span class="pedal-sub">Abrandar</span>
+          </button>
+          <button id="btn-accel" class="pedal-btn" type="button">
+            <span>ACEL.</span>
+            <span class="pedal-sub" id="accel-sub-label">Confirmar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. MODAL RESULTADO / CLASSIFICAÇÃO / PÓDIO FINAL -->
+  <div id="overlay-modal" class="overlay-modal hidden">
+    <div class="gta-panel modal-card">
+      <img id="modal-banner-img" class="trio-banner hidden" src="/assets/trio.jpg" alt="Capital City Grupo 16" />
+      <div id="modal-mission-tag" class="tag accent" style="align-self:center;">Missão 1 de 7</div>
+      <h2 id="modal-title" class="status-banner win">MISSÃO CONCLUÍDA!</h2>
+      <p id="modal-subtitle" style="margin:0; font-size:0.84rem; color:var(--branco-quente); opacity:0.86;"></p>
+      <p id="modal-points" class="points-earned hidden">+0 pts</p>
+
+      <div id="modal-explanation" class="explanation-box hidden"></div>
+      <div id="modal-position" class="position-callout hidden"></div>
+
+      <div style="text-align:left; font-size:0.72rem; font-weight:800; color:var(--amarelo-capital); text-transform:uppercase; letter-spacing:0.06em;">
+        Top 4 da Sala
+      </div>
+      <div id="modal-top4" class="top4-list"></div>
+
+      <div id="modal-wait-msg" style="font-size:0.78rem; color:var(--cinza-aco);" class="hidden">
+        A aguardar que o apresentador avance...
+      </div>
+
+      <button id="btn-modal-next" class="btn btn-capital hidden">Próxima Missão</button>
+      <button id="btn-modal-restart" class="btn btn-steel hidden">Voltar ao Início</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script>
+    if (typeof THREE === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"><\/script>');
+    }
+  </script>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // =========================================================================
+      // PALETA OFICIAL & ESTADO GLOBAL
+      // =========================================================================
+      const PALETTE = {
+        pretoAsfalto: 0x111318,
+        azulNoite: 0x1A2F4B,
+        amareloCapital: 0xF4C414,
+        laranja: 0xF27D16,
+        brancoQuente: 0xF7F3E9,
+        cinzaAco: 0x6B7684,
+        verde: 0x27AE60,
+        vermelho: 0xE53935
+      };
+
+      const CAR_PRESETS = {
+        red:    { primary: 0xD92323, stripe: 0x111318, accent: 0xF4C414 },
+        silver: { primary: 0xCBD5E1, stripe: 0x1A2F4B, accent: 0x38BDF8 },
+        black:  { primary: 0x161922, stripe: 0x6B7684, accent: 0xF27D16 },
+        white:  { primary: 0xF7F3E9, stripe: 0x111318, accent: 0xE53935 }
+      };
+
+      const socket = io();
+      const STATE = {
+        role: null,
+        roomCode: null,
+        playerId: sessionStorage.getItem('cc_g16_player_id') || ('p_' + Math.random().toString(36).slice(2, 10)),
+        playerName: '',
+        carStyle: 'red',
+        score: 0,
+        missionActive: false,
+        answeredCurrent: false,
+        selectedLane: 1,
+        timerEndAt: 0,
+        timerDurationMs: 15000,
+        mode3D: 'ambient', // 'ambient' | 'explore_foot' | 'explore_drive' | 'mission'
+        boostTimer: 0,
+        consequenceTimer: 0, // Efeito visual quando o jogador erra a faixa
+        braking: false,
+        accelerating: false,
+        joyX: 0,
+        joyY: 0,
+        joyActive: false
+      };
+      sessionStorage.setItem('cc_g16_player_id', STATE.playerId);
+
+      const el = {
+        screenFx: document.getElementById('screen-fx'),
+        screenHome: document.getElementById('screen-home'),
+        screenHost: document.getElementById('screen-host'),
+        screenPlayer: document.getElementById('screen-player'),
+        homeError: document.getElementById('home-error'),
+        inputName: document.getElementById('input-name'),
+        inputCode: document.getElementById('input-code'),
+        btnJoin: document.getElementById('btn-join'),
+        btnCreateRoom: document.getElementById('btn-create-room'),
+        carPicker: document.getElementById('car-picker'),
+
+        hostRoomPill: document.getElementById('host-room-pill'),
+        hostPlayersPill: document.getElementById('host-players-pill'),
+        hostLobbyCard: document.getElementById('host-lobby-card'),
+        hostQrImg: document.getElementById('host-qr-img'),
+        hostCodeBig: document.getElementById('host-code-big'),
+        hostJoinUrl: document.getElementById('host-join-url'),
+        hostPlayersList: document.getElementById('host-players-list'),
+        btnHostStart: document.getElementById('btn-host-start'),
+        hostMissionCard: document.getElementById('host-mission-card'),
+        hostMissionCounter: document.getElementById('host-mission-counter'),
+        hostAnswerProgress: document.getElementById('host-answer-progress'),
+        hostTimerBadge: document.getElementById('host-timer-badge'),
+        hostTimerFill: document.getElementById('host-timer-fill'),
+        hostQuestionText: document.getElementById('host-question-text'),
+        hostOpts: [
+          document.getElementById('host-opt-0'),
+          document.getElementById('host-opt-1'),
+          document.getElementById('host-opt-2')
+        ],
+        btnHostForceNext: document.getElementById('btn-host-force-next'),
+
+        playerHudName: document.getElementById('player-hud-name'),
+        playerHudZone: document.getElementById('player-hud-zone'),
+        playerHudScore: document.getElementById('player-hud-score'),
+        playerTimerBadge: document.getElementById('player-timer-badge'),
+        exploreTipBox: document.getElementById('explore-tip-box'),
+        playerMissionHud: document.getElementById('player-mission-hud'),
+        playerMissionLabel: document.getElementById('player-mission-label'),
+        playerLaneLabel: document.getElementById('player-lane-label'),
+        playerTimerFill: document.getElementById('player-timer-fill'),
+        playerQuestionText: document.getElementById('player-question-text'),
+        playerOpts: [
+          document.getElementById('player-opt-0'),
+          document.getElementById('player-opt-1'),
+          document.getElementById('player-opt-2')
+        ],
+        laneCards: [
+          document.getElementById('lane-card-0'),
+          document.getElementById('lane-card-1'),
+          document.getElementById('lane-card-2')
+        ],
+
+        minimapCanvas: document.getElementById('minimap-canvas'),
+        miniTimerBar: document.getElementById('mini-timer-bar'),
+        speedoValue: document.getElementById('speedo-value'),
+        rpmFill: document.getElementById('rpm-fill'),
+        joystickZone: document.getElementById('joystick-zone'),
+        joystickKnob: document.getElementById('joystick-knob'),
+        btnCarToggle: document.getElementById('btn-car-toggle'),
+        btnBrake: document.getElementById('btn-brake'),
+        btnAccel: document.getElementById('btn-accel'),
+        accelSubLabel: document.getElementById('accel-sub-label'),
+
+        overlayModal: document.getElementById('overlay-modal'),
+        modalBannerImg: document.getElementById('modal-banner-img'),
+        modalMissionTag: document.getElementById('modal-mission-tag'),
+        modalTitle: document.getElementById('modal-title'),
+        modalSubtitle: document.getElementById('modal-subtitle'),
+        modalPoints: document.getElementById('modal-points'),
+        modalExplanation: document.getElementById('modal-explanation'),
+        modalPosition: document.getElementById('modal-position'),
+        modalTop4: document.getElementById('modal-top4'),
+        modalWaitMsg: document.getElementById('modal-wait-msg'),
+        btnModalNext: document.getElementById('btn-modal-next'),
+        btnModalRestart: document.getElementById('btn-modal-restart')
+      };
+
+      const minimapCtx = el.minimapCanvas.getContext('2d');
+
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('room')) {
+        el.inputCode.value = urlParams.get('room').toUpperCase().slice(0, 6);
+      }
+
+      // =========================================================================
+      // MOTOR 3D ESTILO GTA V (CIDADE + PALMEIRAS + TRÂNSITO + PEÕES + SUPERCARRO)
+      // =========================================================================
+      const LANE_X = [-3.65, 0, 3.65];
+      const BILLBOARD_ASSETS = [
+        '/assets/city-day.jpg',
+        '/assets/downtown.jpg',
+        '/assets/hills-car.jpg',
+        '/assets/desert.jpg',
+        '/assets/night-bike.webp',
+        '/assets/rain.jpg',
+        '/assets/rain-walk.jpg',
+        '/assets/trevor.jpg',
+        '/assets/trio.jpg',
+        '/assets/gta-cover.jpg'
+      ];
+
+      let scene, camera, renderer, texLoader;
+      let hemiLight, dirLight;
+      let roadMesh, roadTexture, backdropMesh, rainSystem, smokeSystem;
+      let carGroup, carBodyMat, carStripeMat, carWheels = [], brakeLights = [], nitroFlames = [];
+      let characterGroup, charParts = {};
+      let cityChunks = [];
+      let trafficCars = [];
+      let pedestrians = [];
+      let portalGroup, portalStrips = [], portalPads = [];
+      let currentTheme = 'day';
+      let carSpeed = 24;
+      let walkAnimPhase = 0;
+
+      function createRoadTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Preto asfalto (#111318) com textura realista de pavimento
+        ctx.fillStyle = '#14171e';
+        ctx.fillRect(0, 0, 512, 512);
+
+        for (let i = 0; i < 6000; i++) {
+          const x = Math.random() * 512;
+          const y = Math.random() * 512;
+          const v = 18 + Math.floor(Math.random() * 24);
+          ctx.fillStyle = `rgb(${v},${v + 2},${v + 5})`;
+          ctx.fillRect(x, y, 2, 2);
+        }
+
+        // Marcas sutis de desgaste de pneus nas 3 faixas
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+        [85, 256, 427].forEach((cx) => {
+          ctx.fillRect(cx - 38, 0, 18, 512);
+          ctx.fillRect(cx + 20, 0, 18, 512);
+        });
+
+        // Linhas laterais Amarelo Capital (#F4C414)
+        ctx.fillStyle = '#F4C414';
+        ctx.fillRect(12, 0, 8, 512);
+        ctx.fillRect(492, 0, 8, 512);
+
+        // Separadores tracejados Branco quente (#F7F3E9) das 3 faixas
+        ctx.fillStyle = '#F7F3E9';
+        const d1 = Math.round(512 / 3);
+        const d2 = Math.round((512 * 2) / 3);
+        for (let y = 14; y < 512; y += 92) {
+          ctx.fillRect(d1 - 4, y, 8, 48);
+          ctx.fillRect(d2 - 4, y, 8, 48);
+        }
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(1, 20);
+        return tex;
+      }
+
+      function createFacadeTexture(baseHex, litHex) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = baseHex;
+        ctx.fillRect(0, 0, 256, 512);
+
+        // Linhas arquitetónicas verticais
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        for (let x = 0; x < 256; x += 32) ctx.fillRect(x, 0, 3, 512);
+
+        for (let y = 16; y < 492; y += 30) {
+          for (let x = 14; x < 240; x += 30) {
+            const r = Math.random();
+            ctx.fillStyle = r > 0.55 ? litHex : (r > 0.25 ? '#1A2F4B' : '#0f131b');
+            ctx.fillRect(x, y, 18, 19);
+          }
+        }
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        return tex;
+      }
+
+      function createPlateTexture(text) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 48;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#F7F3E9';
+        ctx.fillRect(0, 0, 128, 48);
+        ctx.fillStyle = '#1A2F4B';
+        ctx.fillRect(0, 0, 128, 12);
+        ctx.fillStyle = '#111318';
+        ctx.font = 'bold 22px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(text, 64, 38);
+        return new THREE.CanvasTexture(canvas);
+      }
+
+      function createLaneSignTexture(letter, label, hex) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#111318';
+        ctx.fillRect(0, 0, 256, 128);
+        ctx.strokeStyle = hex;
+        ctx.lineWidth = 8;
+        ctx.strokeRect(5, 5, 246, 118);
+
+        ctx.fillStyle = hex;
+        ctx.font = 'bold 58px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(letter, 128, 66);
+
+        ctx.fillStyle = '#F7F3E9';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.fillText(label, 128, 102);
+        return new THREE.CanvasTexture(canvas);
+      }
+
+      // Supercarro 3D com proporções realistas inspiradas em GTA V (baixo, largo, difusor, 4 escapes, LED traseiro)
+      function buildSupercarGTA(presetKey) {
+        const preset = CAR_PRESETS[presetKey] || CAR_PRESETS.red;
+        const group = new THREE.Group();
+
+        carBodyMat = new THREE.MeshStandardMaterial({
+          color: preset.primary,
+          metalness: 0.72,
+          roughness: 0.22
+        });
+        carStripeMat = new THREE.MeshStandardMaterial({
+          color: preset.stripe,
+          metalness: 0.45,
+          roughness: 0.35
+        });
+        const carbonMat = new THREE.MeshStandardMaterial({
+          color: 0x111318,
+          metalness: 0.5,
+          roughness: 0.45
+        });
+        const glassMat = new THREE.MeshStandardMaterial({
+          color: 0x0b1220,
+          metalness: 0.92,
+          roughness: 0.08,
+          transparent: true,
+          opacity: 0.88
+        });
+        const rimMat = new THREE.MeshStandardMaterial({
+          color: 0xdbe3ec,
+          metalness: 0.88,
+          roughness: 0.18
+        });
+
+        // Carroçaria principal baixa e larga
+        const lowerBody = new THREE.Mesh(new THREE.BoxGeometry(2.26, 0.48, 4.72), carBodyMat);
+        lowerBody.position.set(0, 0.52, 0);
+        group.add(lowerBody);
+
+        // Guarda-lamas largos estilo supercarro
+        [-1.08, 1.08].forEach((fx) => {
+          const fenderF = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.32, 1.25), carBodyMat);
+          fenderF.position.set(fx, 0.62, -1.42);
+          group.add(fenderF);
+
+          const fenderR = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.38, 1.45), carBodyMat);
+          fenderR.position.set(fx, 0.66, 1.38);
+          group.add(fenderR);
+        });
+
+        // Capot frontal aerodinâmico inclinado
+        const hood = new THREE.Mesh(new THREE.BoxGeometry(2.04, 0.22, 1.6), carBodyMat);
+        hood.position.set(0, 0.78, -1.45);
+        hood.rotation.x = 0.14;
+        group.add(hood);
+
+        // Habitáculo esculpido + vidro traseiro inclinado
+        const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.76, 0.48, 1.92), glassMat);
+        cabin.position.set(0, 1.0, 0.08);
+        group.add(cabin);
+
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(1.66, 0.09, 1.32), carBodyMat);
+        roof.position.set(0, 1.25, 0.1);
+        group.add(roof);
+
+        // Tampa traseira com entradas de ar estilo motor central
+        const rearDeck = new THREE.Mesh(new THREE.BoxGeometry(1.78, 0.24, 1.15), carStripeMat);
+        rearDeck.position.set(0, 0.86, 1.56);
+        rearDeck.rotation.x = -0.16;
+        group.add(rearDeck);
+
+        // Faixa longitudinal desportiva
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.025, 4.56), carStripeMat);
+        stripe.position.set(0, 0.82, 0);
+        group.add(stripe);
+
+        // Espelhos retrovisores
+        [-1.16, 1.16].forEach((mx) => {
+          const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.1, 0.16), carbonMat);
+          mirror.position.set(mx, 0.94, -0.58);
+          group.add(mirror);
+        });
+
+        // Difusor traseiro + Aileron em carbono
+        const diffuser = new THREE.Mesh(new THREE.BoxGeometry(2.12, 0.24, 0.22), carbonMat);
+        diffuser.position.set(0, 0.34, 2.34);
+        group.add(diffuser);
+
+        const wing = new THREE.Mesh(new THREE.BoxGeometry(2.14, 0.07, 0.32), carbonMat);
+        wing.position.set(0, 1.12, 2.18);
+        group.add(wing);
+        [-0.74, 0.74].forEach((sx) => {
+          const strut = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.26, 0.18), carbonMat);
+          strut.position.set(sx, 0.96, 2.15);
+          group.add(strut);
+        });
+
+        // Matrícula "CAP-16"
+        const plate = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.62, 0.22),
+          new THREE.MeshBasicMaterial({ map: createPlateTexture('CAP-16') })
+        );
+        plate.position.set(0, 0.56, 2.38);
+        group.add(plate);
+
+        // Barra LED traseira larga + luzes de travão
+        const tailMatL = new THREE.MeshStandardMaterial({ color: 0xE53935, emissive: 0xE53935, emissiveIntensity: 1.6 });
+        const tailMatR = tailMatL.clone();
+        const tailL = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.12, 0.08), tailMatL);
+        tailL.position.set(-0.68, 0.72, 2.37);
+        const tailR = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.12, 0.08), tailMatR);
+        tailR.position.set(0.68, 0.72, 2.37);
+        group.add(tailL, tailR);
+        brakeLights.push(tailMatL, tailMatR);
+
+        // Faróis LED dianteiros
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xF7F3E9, emissive: 0xF7F3E9, emissiveIntensity: 2.3 });
+        [-0.76, 0.76].forEach((hx) => {
+          const head = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.11, 0.08), headMat);
+          head.position.set(hx, 0.62, -2.37);
+          group.add(head);
+        });
+
+        // 4 Escapes cromados + chamas de nitro (Laranja/Amarelo Capital)
+        const flameMat = new THREE.MeshBasicMaterial({ color: PALETTE.laranja, transparent: true, opacity: 0.92 });
+        [-0.68, -0.48, 0.48, 0.68].forEach((ex, i) => {
+          const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.22, 10), rimMat);
+          pipe.rotation.x = Math.PI / 2;
+          pipe.position.set(ex, 0.34, 2.42);
+          group.add(pipe);
+          if (i === 0 || i === 3) {
+            const flame = new THREE.Mesh(new THREE.ConeGeometry(0.15, 1.3, 10), flameMat);
+            flame.rotation.x = Math.PI / 2;
+            flame.position.set(ex, 0.34, 3.08);
+            flame.visible = false;
+            group.add(flame);
+            nitroFlames.push(flame);
+          }
+        });
+
+        // 4 Rodas largas com pinças de travão amarelas
+        const tireGeo = new THREE.CylinderGeometry(0.41, 0.41, 0.36, 18);
+        const rimGeo = new THREE.CylinderGeometry(0.26, 0.26, 0.38, 12);
+        const wheelCoords = [
+          [-1.12, 0.41, -1.44],
+          [1.12, 0.41, -1.44],
+          [-1.12, 0.41, 1.42],
+          [1.12, 0.41, 1.42]
+        ];
+        wheelCoords.forEach(([wx, wy, wz]) => {
+          const pivot = new THREE.Group();
+          pivot.position.set(wx, wy, wz);
+          const tire = new THREE.Mesh(tireGeo, carbonMat);
+          tire.rotation.z = Math.PI / 2;
+          const rim = new THREE.Mesh(rimGeo, rimMat);
+          rim.rotation.z = Math.PI / 2;
+          pivot.add(tire, rim);
+          group.add(pivot);
+          carWheels.push(pivot);
+        });
+
+        const lightL = new THREE.PointLight(0xF7F3E9, 1.6, 16);
+        lightL.position.set(-0.7, 0.75, -2.9);
+        const lightR = new THREE.PointLight(0xF7F3E9, 1.6, 16);
+        lightR.position.set(0.7, 0.75, -2.9);
+        group.add(lightL, lightR);
+
+        return group;
+      }
+
+      // Personagem humana 3D revista (proporções urbanas GTA V: ombros, casaco com risca, calças, sapatilhas)
+      function buildHumanCharacter(outfit = {}) {
+        const group = new THREE.Group();
+
+        const skinMat = new THREE.MeshStandardMaterial({ color: outfit.skin || 0x8D5A3C, roughness: 0.65 });
+        const jacketMat = new THREE.MeshStandardMaterial({ color: outfit.jacket || 0x334155, roughness: 0.62 });
+        const sleeveMat = new THREE.MeshStandardMaterial({ color: outfit.sleeve || 0x1E293B, roughness: 0.7 });
+        const accentMat = new THREE.MeshStandardMaterial({ color: outfit.accent || 0xF7F3E9, roughness: 0.6 });
+        const pantsMat = new THREE.MeshStandardMaterial({ color: outfit.pants || 0x181E29, roughness: 0.85 });
+        const shoeMat = new THREE.MeshStandardMaterial({ color: 0xF7F3E9, roughness: 0.45 });
+        const hairMat = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.9 });
+
+        // Ancas / cinto
+        const pelvis = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.17, 0.18, 12), pantsMat);
+        pelvis.position.set(0, 0.92, 0);
+        group.add(pelvis);
+
+        // Tronco anatómico (mais largo nos ombros)
+        const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.18, 0.56, 14), jacketMat);
+        torso.scale.set(1.15, 1, 0.68);
+        torso.position.set(0, 1.28, 0);
+        group.add(torso);
+
+        // Barra inferior do casaco varsity (inspirado na referência GTA V)
+        const hem = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.08, 12), accentMat);
+        hem.scale.set(1.12, 1, 0.7);
+        hem.position.set(0, 1.02, 0);
+        group.add(hem);
+
+        // Pescoço e Cabeça proporcionada
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.075, 0.12, 10), skinMat);
+        neck.position.set(0, 1.6, 0);
+        group.add(neck);
+
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.145, 16, 16), skinMat);
+        head.scale.set(0.92, 1.08, 0.98);
+        head.position.set(0, 1.74, 0);
+        group.add(head);
+
+        const hair = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
+        hair.scale.set(0.94, 1.05, 1.0);
+        hair.position.set(0, 1.77, 0.01);
+        group.add(hair);
+
+        function makeLimb(topR, botR, len, mat, handOrShoe) {
+          const pivot = new THREE.Group();
+          const limb = new THREE.Mesh(new THREE.CylinderGeometry(topR, botR, len, 10), mat);
+          limb.position.y = -len / 2;
+          pivot.add(limb);
+          if (handOrShoe) pivot.add(handOrShoe);
+          return pivot;
+        }
+
+        const handL = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), skinMat);
+        handL.position.y = -0.58;
+        const handR = handL.clone();
+
+        const shoeGeo = new THREE.BoxGeometry(0.14, 0.1, 0.28);
+        const shoeL = new THREE.Mesh(shoeGeo, shoeMat);
+        shoeL.position.set(0, -0.82, -0.05);
+        const shoeR = shoeL.clone();
+
+        const parts = {
+          leftArm: makeLimb(0.078, 0.058, 0.56, sleeveMat, handL),
+          rightArm: makeLimb(0.078, 0.058, 0.56, sleeveMat, handR),
+          leftLeg: makeLimb(0.095, 0.072, 0.78, pantsMat, shoeL),
+          rightLeg: makeLimb(0.095, 0.072, 0.78, pantsMat, shoeR)
+        };
+
+        parts.leftArm.position.set(-0.31, 1.5, 0);
+        parts.rightArm.position.set(0.31, 1.5, 0);
+        parts.leftLeg.position.set(-0.12, 0.88, 0);
+        parts.rightLeg.position.set(0.12, 0.88, 0);
+
+        group.add(parts.leftArm, parts.rightArm, parts.leftLeg, parts.rightLeg);
+        return { group, parts };
+      }
+
+      // Palmeira urbana estilo Los Santos / GTA V
+      function createPalmTree() {
+        const tree = new THREE.Group();
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6D523D, roughness: 0.92 });
+        const leafMat = new THREE.MeshStandardMaterial({ color: 0x2F6B3B, roughness: 0.8, side: THREE.DoubleSide });
+
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.28, 7.6, 8), trunkMat);
+        trunk.position.y = 3.8;
+        trunk.rotation.z = (Math.random() - 0.5) * 0.08;
+        tree.add(trunk);
+
+        const frondGeo = new THREE.ConeGeometry(0.62, 3.1, 4);
+        for (let i = 0; i < 7; i++) {
+          const frond = new THREE.Mesh(frondGeo, leafMat);
+          const angle = (i / 7) * Math.PI * 2;
+          frond.position.set(Math.cos(angle) * 1.15, 7.45, Math.sin(angle) * 1.15);
+          frond.rotation.z = -Math.cos(angle) * 1.15;
+          frond.rotation.x = Math.sin(angle) * 1.15;
+          tree.add(frond);
+        }
+        return tree;
+      }
+
+      // Cacto 3D para a missão do Deserto
+      function createCactus() {
+        const g = new THREE.Group();
+        const mat = new THREE.MeshStandardMaterial({ color: 0x3A6B35, roughness: 0.9 });
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 3.4, 8), mat);
+        stem.position.y = 1.7;
+        g.add(stem);
+        const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 1.3, 8), mat);
+        armL.position.set(-0.52, 2.0, 0);
+        armL.rotation.z = 0.45;
+        const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 1.1, 8), mat);
+        armR.position.set(0.48, 1.65, 0);
+        armR.rotation.z = -0.45;
+        g.add(armL, armR);
+        return g;
+      }
+
+      // Carros de trânsito NPC a circular nas 3 faixas
+      function buildTrafficVehicle(colorHex) {
+        const g = new THREE.Group();
+        const bodyMat = new THREE.MeshStandardMaterial({ color: colorHex, metalness: 0.55, roughness: 0.35 });
+        const darkMat = new THREE.MeshStandardMaterial({ color: 0x111318, roughness: 0.6 });
+        const glassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.85, roughness: 0.15 });
+
+        const base = new THREE.Mesh(new THREE.BoxGeometry(2.02, 0.55, 4.25), bodyMat);
+        base.position.y = 0.56;
+        const cab = new THREE.Mesh(new THREE.BoxGeometry(1.74, 0.54, 2.1), glassMat);
+        cab.position.set(0, 1.08, 0.08);
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.08, 1.7), bodyMat);
+        roof.position.set(0, 1.36, 0.08);
+        g.add(base, cab, roof);
+
+        const tailMat = new THREE.MeshBasicMaterial({ color: 0xE53935 });
+        [-0.66, 0.66].forEach((x) => {
+          const t = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.06), tailMat);
+          t.position.set(x, 0.68, 2.14);
+          g.add(t);
+        });
+
+        const wheelGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.28, 12);
+        [[-0.98, 0.36, -1.3], [0.98, 0.36, -1.3], [-0.98, 0.36, 1.3], [0.98, 0.36, 1.3]].forEach(([x, y, z]) => {
+          const w = new THREE.Mesh(wheelGeo, darkMat);
+          w.rotation.z = Math.PI / 2;
+          w.position.set(x, y, z);
+          g.add(w);
+        });
+        return g;
+      }
+
+      function buildMissionPortals() {
+        const group = new THREE.Group();
+        const steelMat = new THREE.MeshStandardMaterial({ color: PALETTE.cinzaAco, metalness: 0.72, roughness: 0.28 });
+        const colors = ['#F4C414', '#F7F3E9', '#F27D16'];
+        const letters = ['A', 'B', 'C'];
+        const labels = ['ESQUERDA', 'CENTRO', 'DIREITA'];
+
+        const beam = new THREE.Mesh(new THREE.BoxGeometry(13.6, 0.42, 0.55), steelMat);
+        beam.position.set(0, 5.25, 0);
+        group.add(beam);
+
+        [-6.55, 6.55].forEach((px) => {
+          const post = new THREE.Mesh(new THREE.BoxGeometry(0.45, 5.4, 0.45), steelMat);
+          post.position.set(px, 2.7, 0);
+          group.add(post);
+        });
+
+        for (let i = 0; i < 3; i++) {
+          const x = LANE_X[i];
+          const signTex = createLaneSignTexture(letters[i], labels[i], colors[i]);
+          const sign = new THREE.Mesh(
+            new THREE.PlaneGeometry(3.15, 1.52),
+            new THREE.MeshBasicMaterial({ map: signTex })
+          );
+          sign.position.set(x, 4.18, 0.34);
+          group.add(sign);
+
+          const stripMat = new THREE.MeshBasicMaterial({
+            color: colors[i],
+            transparent: true,
+            opacity: 0.12,
+            side: THREE.DoubleSide
+          });
+          const strip = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 3.45), stripMat);
+          strip.position.set(x, 1.72, 0);
+          group.add(strip);
+          portalStrips.push(stripMat);
+
+          const padMat = new THREE.MeshBasicMaterial({
+            color: colors[i],
+            transparent: true,
+            opacity: 0.1
+          });
+          const pad = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 36), padMat);
+          pad.rotation.x = -Math.PI / 2;
+          pad.position.set(x, 0.04, 18);
+          group.add(pad);
+          portalPads.push(padMat);
+        }
+
+        group.position.set(0, 0, -52);
+        group.visible = false;
+        return group;
+      }
+
+      function createCityChunk(zOffset, idx) {
+        const chunk = new THREE.Group();
+        chunk.position.z = zOffset;
+        chunk.userData.palms = [];
+        chunk.userData.cacti = [];
+
+        const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0x3b4250, roughness: 0.88 });
+        const curbMat = new THREE.MeshStandardMaterial({ color: idx % 2 === 0 ? 0x6B7684 : 0xB91C1C, roughness: 0.8 });
+
+        [-8.8, 8.8].forEach((sx, side) => {
+          const sw = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.24, 30), sidewalkMat);
+          sw.position.set(sx, 0.12, 0);
+          chunk.add(sw);
+
+          const curb = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 30), curbMat);
+          curb.position.set(side === 0 ? -6.32 : 6.32, 0.14, 0);
+          chunk.add(curb);
+        });
+
+        // Edifícios estilo downtown Los Santos
+        const tex1 = createFacadeTexture('#1f2937', '#F7F3E9');
+        const tex2 = createFacadeTexture('#2a3444', '#F4C414');
+        const mat1 = new THREE.MeshStandardMaterial({ map: tex1, roughness: 0.72 });
+        const mat2 = new THREE.MeshStandardMaterial({ map: tex2, roughness: 0.76 });
+
+        [-15.2, 15.2].forEach((bx, side) => {
+          const h1 = 10 + ((idx * 7 + side * 5) % 16);
+          const b1 = new THREE.Mesh(new THREE.BoxGeometry(7.6, h1, 12.6), side === 0 ? mat1 : mat2);
+          b1.position.set(bx, h1 / 2, -7.2);
+          chunk.add(b1);
+
+          const h2 = 8 + ((idx * 5 + side * 9) % 18);
+          const b2 = new THREE.Mesh(new THREE.BoxGeometry(7.6, h2, 12.6), side === 0 ? mat2 : mat1);
+          b2.position.set(bx, h2 / 2, 7.6);
+          chunk.add(b2);
+        });
+
+        // Palmeiras urbanas e cactos (alternam conforme tema)
+        [-7.5, 7.5].forEach((tx) => {
+          const palm = createPalmTree();
+          palm.position.set(tx, 0.2, -9);
+          chunk.add(palm);
+          chunk.userData.palms.push(palm);
+
+          const cactus = createCactus();
+          cactus.position.set(tx, 0.2, -9);
+          cactus.visible = false;
+          chunk.add(cactus);
+          chunk.userData.cacti.push(cactus);
+        });
+
+        // Candeeiros urbanos
+        const poleMat = new THREE.MeshStandardMaterial({ color: PALETTE.cinzaAco, metalness: 0.7, roughness: 0.3 });
+        const bulbMat = new THREE.MeshBasicMaterial({ color: PALETTE.brancoQuente });
+        [-6.9, 6.9].forEach((lx) => {
+          const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 5.6, 8), poleMat);
+          pole.position.set(lx, 2.8, 5);
+          chunk.add(pole);
+          const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.19, 8, 8), bulbMat);
+          bulb.position.set(lx > 0 ? lx - 0.55 : lx + 0.55, 5.5, 5);
+          chunk.add(bulb);
+        });
+
+        // Outdoors 3D integrados com as 10 imagens reais de public/assets/
+        const assetUrl = BILLBOARD_ASSETS[idx % BILLBOARD_ASSETS.length];
+        const sideSign = idx % 2 === 0 ? -1 : 1;
+        const board = new THREE.Group();
+        board.position.set(sideSign * 10.2, 5.8, -1);
+        board.rotation.y = sideSign === -1 ? 0.3 : -0.3;
+
+        const frame = new THREE.Mesh(
+          new THREE.BoxGeometry(5.6, 3.25, 0.22),
+          new THREE.MeshStandardMaterial({ color: PALETTE.pretoAsfalto, metalness: 0.65, roughness: 0.3 })
+        );
+        board.add(frame);
+
+        const tex = texLoader.load(assetUrl);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const screen = new THREE.Mesh(
+          new THREE.PlaneGeometry(5.25, 2.9),
+          new THREE.MeshBasicMaterial({ map: tex })
+        );
+        screen.position.z = 0.13;
+        board.add(screen);
+        chunk.add(board);
+
+        return chunk;
+      }
+
+      function applyCityAtmosphere(theme, backdropUrl) {
+        if (!scene) return;
+        currentTheme = theme || 'day';
+
+        const palettes = {
+          day:      { sky: 0x33658a, fog: 0x4b7ea1, hemiSky: 0xdbeafe, hemiGround: 0x263242, dir: 0xF7F3E9, dirInt: 1.55, rain: false, wet: 0.78 },
+          hills:    { sky: 0x5c374c, fog: 0x8c4a32, hemiSky: 0xF4C414, hemiGround: 0x2b2129, dir: 0xF27D16, dirInt: 1.65, rain: false, wet: 0.75 },
+          downtown: { sky: 0x1A2F4B, fog: 0x243b5e, hemiSky: 0x93c5fd, hemiGround: 0x111318, dir: 0xF7F3E9, dirInt: 1.4,  rain: false, wet: 0.72 },
+          sunset:   { sky: 0x7c2d12, fog: 0xb45309, hemiSky: 0xF4C414, hemiGround: 0x1c1917, dir: 0xF27D16, dirInt: 1.7,  rain: false, wet: 0.68 },
+          desert:   { sky: 0x9a4d22, fog: 0xb96c38, hemiSky: 0xfde68a, hemiGround: 0x5c361b, dir: 0xF4C414, dirInt: 1.75, rain: false, wet: 0.92 },
+          night:    { sky: 0x090d16, fog: 0x111827, hemiSky: 0x1A2F4B, hemiGround: 0x111318, dir: 0x60a5fa, dirInt: 0.85, rain: false, wet: 0.45 },
+          rain:     { sky: 0x111824, fog: 0x1c2838, hemiSky: 0x6B7684, hemiGround: 0x111318, dir: 0xcbd5e1, dirInt: 1.0,  rain: true,  wet: 0.18 }
+        };
+
+        const p = palettes[currentTheme] || palettes.day;
+        scene.background = new THREE.Color(p.sky);
+        scene.fog = new THREE.FogExp2(p.fog, 0.0085);
+        hemiLight.color.setHex(p.hemiSky);
+        hemiLight.groundColor.setHex(p.hemiGround);
+        dirLight.color.setHex(p.dir);
+        dirLight.intensity = p.dirInt;
+
+        if (roadMesh) {
+          roadMesh.material.roughness = p.wet;
+          roadMesh.material.metalness = p.rain ? 0.45 : 0.1;
+          roadMesh.material.needsUpdate = true;
+        }
+        if (rainSystem) rainSystem.visible = p.rain;
+
+        // Alterna vegetação entre palmeiras urbanas e cactos no deserto
+        const isDesert = currentTheme === 'desert';
+        cityChunks.forEach((chunk) => {
+          chunk.userData.palms.forEach((o) => { o.visible = !isDesert; });
+          chunk.userData.cacti.forEach((o) => { o.visible = isDesert; });
+        });
+
+        if (backdropMesh && backdropUrl) {
+          texLoader.load(backdropUrl, (tex) => {
+            tex.colorSpace = THREE.SRGBColorSpace;
+            backdropMesh.material.map = tex;
+            backdropMesh.material.needsUpdate = true;
+          });
+        }
+      }
+
+      function applyCarStyle(presetKey) {
+        STATE.carStyle = presetKey;
+        const preset = CAR_PRESETS[presetKey] || CAR_PRESETS.red;
+        if (carBodyMat) carBodyMat.color.setHex(preset.primary);
+        if (carStripeMat) carStripeMat.color.setHex(preset.stripe);
+      }
+
+      function initThreeScene() {
+        if (typeof THREE === 'undefined') return;
+        const container = document.getElementById('scene-container');
+        scene = new THREE.Scene();
+        texLoader = new THREE.TextureLoader();
+
+        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 320);
+        camera.position.set(0, 3.8, 9.6);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        container.appendChild(renderer.domElement);
+
+        hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x1A2F4B, 1.2);
+        scene.add(hemiLight);
+
+        dirLight = new THREE.DirectionalLight(0xF7F3E9, 1.5);
+        dirLight.position.set(24, 38, 16);
+        scene.add(dirLight);
+
+        const ground = new THREE.Mesh(
+          new THREE.PlaneGeometry(260, 340),
+          new THREE.MeshStandardMaterial({ color: 0x161c26, roughness: 0.95 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.02;
+        scene.add(ground);
+
+        roadTexture = createRoadTexture();
+        roadMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(12.8, 280),
+          new THREE.MeshStandardMaterial({ map: roadTexture, roughness: 0.78 })
+        );
+        roadMesh.rotation.x = -Math.PI / 2;
+        roadMesh.position.set(0, 0.01, -70);
+        scene.add(roadMesh);
+
+        // Horizonte panorâmico com as imagens de public/assets/
+        const skyGeo = new THREE.CylinderGeometry(128, 128, 66, 32, 1, true, Math.PI * 0.65, Math.PI * 0.7);
+        backdropMesh = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false }));
+        backdropMesh.position.set(0, 22, -14);
+        scene.add(backdropMesh);
+
+        // 8 blocos urbanos contínuos
+        for (let i = 0; i < 8; i++) {
+          const chunk = createCityChunk(30 - i * 30, i);
+          scene.add(chunk);
+          cityChunks.push(chunk);
+        }
+
+        // Supercarro do jogador
+        carGroup = buildSupercarGTA(STATE.carStyle);
+        scene.add(carGroup);
+
+        // Personagem humana controlável a pé
+        const builtPlayer = buildHumanCharacter({
+          skin: 0x8D5A3C,
+          jacket: 0x334155,
+          sleeve: 0x1A2F4B,
+          accent: 0xF7F3E9
+        });
+        characterGroup = builtPlayer.group;
+        charParts = builtPlayer.parts;
+        characterGroup.position.set(-4.8, 0, 3.2);
+        characterGroup.visible = false;
+        scene.add(characterGroup);
+
+        // Trânsito NPC realista nas 3 faixas
+        const npcColors = [0x1A2F4B, 0x6B7684, 0xF7F3E9, 0xF4C414, 0x2c3e50, 0x991b1b];
+        for (let i = 0; i < 6; i++) {
+          const lane = i % 3;
+          const npc = buildTrafficVehicle(npcColors[i % npcColors.length]);
+          npc.position.set(LANE_X[lane], 0, -26 - i * 24);
+          npc.userData = { lane, speed: 11 + (i % 3) * 3.5 };
+          scene.add(npc);
+          trafficCars.push(npc);
+        }
+
+        // Peões animados nos passeios esquerdo e direito
+        const pedOutfits = [
+          { skin: 0xd9a077, jacket: 0xF27D16, sleeve: 0xF27D16, pants: 0x1e293b },
+          { skin: 0x7c4a2d, jacket: 0x1A2F4B, sleeve: 0xF7F3E9, pants: 0x111318 },
+          { skin: 0xe6bc98, jacket: 0x27AE60, sleeve: 0x14532d, pants: 0x334155 },
+          { skin: 0x9a6442, jacket: 0xF4C414, sleeve: 0x111318, pants: 0x1f2937 }
+        ];
+        for (let i = 0; i < 8; i++) {
+          const side = i % 2 === 0 ? -1 : 1;
+          const ped = buildHumanCharacter(pedOutfits[i % pedOutfits.length]);
+          ped.group.position.set(side * (7.9 + (i % 2) * 0.9), 0.24, 14 - i * 22);
+          ped.group.rotation.y = side === -1 ? 0 : Math.PI;
+          ped.group.userData = {
+            parts: ped.parts,
+            dir: side === -1 ? -1 : 1,
+            phase: Math.random() * Math.PI * 2,
+            walkSpeed: 1.8 + Math.random() * 0.8
+          };
+          scene.add(ped.group);
+          pedestrians.push(ped.group);
+        }
+
+        // Pórticos 3D das 3 opções de resposta
+        portalGroup = buildMissionPortals();
+        scene.add(portalGroup);
+
+        // Chuva 3D
+        const rainCount = 700;
+        const rainPos = new Float32Array(rainCount * 3);
+        for (let i = 0; i < rainCount; i++) {
+          rainPos[i * 3] = (Math.random() - 0.5) * 34;
+          rainPos[i * 3 + 1] = Math.random() * 22;
+          rainPos[i * 3 + 2] = (Math.random() - 0.5) * 65 - 12;
+        }
+        const rainGeo = new THREE.BufferGeometry();
+        rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+        rainSystem = new THREE.Points(
+          rainGeo,
+          new THREE.PointsMaterial({ color: 0xcbd5e1, size: 0.16, transparent: true, opacity: 0.72 })
+        );
+        rainSystem.visible = false;
+        scene.add(rainSystem);
+
+        // Fumo de travagem brusca (consequência de resposta errada)
+        const smokeCount = 50;
+        const smokePos = new Float32Array(smokeCount * 3);
+        for (let i = 0; i < smokeCount; i++) {
+          smokePos[i * 3] = (Math.random() - 0.5) * 2.4;
+          smokePos[i * 3 + 1] = 0.2 + Math.random() * 0.7;
+          smokePos[i * 3 + 2] = 1.6 + Math.random() * 1.4;
+        }
+        const smokeGeo = new THREE.BufferGeometry();
+        smokeGeo.setAttribute('position', new THREE.BufferAttribute(smokePos, 3));
+        smokeSystem = new THREE.Points(
+          smokeGeo,
+          new THREE.PointsMaterial({ color: 0xE53935, size: 0.42, transparent: true, opacity: 0.65 })
+        );
+        smokeSystem.visible = false;
+        carGroup.add(smokeSystem);
+
+        applyCityAtmosphere('day', '/assets/city-day.jpg');
+
+        function handleResize() {
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h);
+        }
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', () => setTimeout(handleResize, 160));
+
+        const clock = new THREE.Clock();
+        function animate() {
+          requestAnimationFrame(animate);
+          const dt = Math.min(clock.getDelta(), 0.05);
+          update3DWorld(dt);
+          updateClientTimerAndHud();
+          renderMinimap();
+          renderer.render(scene, camera);
+        }
+        animate();
+      }
+
+      function highlightPortalLane(laneIndex) {
+        portalStrips.forEach((mat, i) => { mat.opacity = i === laneIndex ? 0.36 : 0.06; });
+        portalPads.forEach((mat, i) => { mat.opacity = i === laneIndex ? 0.3 : 0.05; });
+      }
+
+      function updateTrafficAndPedestrians(worldSpeed, dt) {
+        // Atualiza trânsito NPC (desloca-se relativamente à velocidade do jogador)
+        for (const npc of trafficCars) {
+          const relSpeed = worldSpeed - npc.userData.speed;
+          npc.position.z += relSpeed * dt;
+          if (npc.position.z > 24) {
+            npc.position.z = -120 - Math.random() * 45;
+            // Evita bloquear exatamente à frente da faixa selecionada durante ultrapassagem
+            let nextLane = Math.floor(Math.random() * 3);
+            if (STATE.mode3D === 'mission' && nextLane === STATE.selectedLane && STATE.boostTimer > 0) {
+              nextLane = (nextLane + 1) % 3;
+            }
+            npc.userData.lane = nextLane;
+            npc.position.x = LANE_X[nextLane];
+          } else if (npc.position.z < -175) {
+            npc.position.z = 16;
+          }
+          // Se o jogador estiver perto em modo missão, o trânsito abre ligeiramente ou fica atrás
+          if (STATE.mode3D === 'mission' && Math.abs(npc.position.z) < 6.5 && Math.abs(npc.position.x - carGroup.position.x) < 2.2) {
+            npc.position.z -= 12 * dt;
+          }
+        }
+
+        // Atualiza peões nos passeios
+        for (const ped of pedestrians) {
+          const d = ped.userData;
+          ped.position.z += (worldSpeed + d.dir * d.walkSpeed) * dt;
+          if (ped.position.z > 32) ped.position.z -= 180;
+          if (ped.position.z < -155) ped.position.z += 180;
+
+          d.phase += dt * 7.5;
+          const swing = Math.sin(d.phase) * 0.55;
+          d.parts.leftLeg.rotation.x = swing;
+          d.parts.rightLeg.rotation.x = -swing;
+          d.parts.leftArm.rotation.x = -swing * 0.7;
+          d.parts.rightArm.rotation.x = swing * 0.7;
+        }
+      }
+
+      function update3DWorld(dt) {
+        if (!carGroup || !camera) return;
+
+        if (rainSystem && rainSystem.visible) {
+          const pos = rainSystem.geometry.attributes.position.array;
+          for (let i = 1; i < pos.length; i += 3) {
+            pos[i] -= 25 * dt;
+            if (pos[i] < 0) pos[i] = 22;
+          }
+          rainSystem.geometry.attributes.position.needsUpdate = true;
+        }
+
+        // Modo 1: Fundo cinematográfico GTA (Ecrã inicial ou Apresentador)
+        if (STATE.mode3D === 'ambient') {
+          characterGroup.visible = false;
+          portalGroup.visible = false;
+          smokeSystem.visible = false;
+          carSpeed = 20;
+          carGroup.position.x += (Math.sin(performance.now() * 0.0006) * 3.1 - carGroup.position.x) * dt * 2;
+          carGroup.rotation.y = 0;
+          scrollCity(carSpeed, dt);
+          spinWheels(carSpeed, dt);
+          updateTrafficAndPedestrians(carSpeed, dt);
+          camera.position.lerp(new THREE.Vector3(carGroup.position.x * 0.65, 3.6, 8.8), dt * 3);
+          camera.lookAt(carGroup.position.x * 0.45, 1.25, -14);
+          return;
+        }
+
+        // Modo 2: Exploração a pé em terceira pessoa (GTA V / The Sims)
+        if (STATE.mode3D === 'explore_foot') {
+          characterGroup.visible = true;
+          portalGroup.visible = false;
+          smokeSystem.visible = false;
+          carSpeed = 0;
+          setBrakeVisuals(false);
+          setNitroVisuals(false);
+          updateTrafficAndPedestrians(0, dt);
+
+          const mag = Math.hypot(STATE.joyX, STATE.joyY);
+          if (mag > 0.1) {
+            const walkSpeed = 5.2;
+            characterGroup.position.x = THREE.MathUtils.clamp(characterGroup.position.x + STATE.joyX * walkSpeed * dt, -8.0, 8.0);
+            characterGroup.position.z = THREE.MathUtils.clamp(characterGroup.position.z + STATE.joyY * walkSpeed * dt, -10, 10);
+            characterGroup.rotation.y = Math.atan2(-STATE.joyX, -STATE.joyY);
+            walkAnimPhase += dt * 10.5;
+            const swing = Math.sin(walkAnimPhase) * 0.62;
+            charParts.leftLeg.rotation.x = swing;
+            charParts.rightLeg.rotation.x = -swing;
+            charParts.leftArm.rotation.x = -swing * 0.75;
+            charParts.rightArm.rotation.x = swing * 0.75;
+          } else {
+            charParts.leftLeg.rotation.x *= 0.82;
+            charParts.rightLeg.rotation.x *= 0.82;
+            charParts.leftArm.rotation.x *= 0.82;
+            charParts.rightArm.rotation.x *= 0.82;
+          }
+
+          const dist = characterGroup.position.distanceTo(carGroup.position);
+          const canEnter = dist < 4.4;
+          el.btnCarToggle.disabled = !canEnter;
+          el.btnCarToggle.classList.toggle('ready', canEnter);
+          el.btnCarToggle.textContent = canEnter ? 'ENTRAR NO CARRO' : 'Aproxima-te do carro';
+
+          // Câmara GTA V atrás da personagem
+          const camTarget = new THREE.Vector3(
+            characterGroup.position.x * 0.88 + 0.45,
+            characterGroup.position.y + 2.75,
+            characterGroup.position.z + 5.2
+          );
+          camera.position.lerp(camTarget, dt * 5);
+          camera.lookAt(characterGroup.position.x, characterGroup.position.y + 1.35, characterGroup.position.z - 3);
+          return;
+        }
+
+        // Modo 3: Condução livre na cidade (sala de espera dentro do carro)
+        if (STATE.mode3D === 'explore_drive') {
+          characterGroup.visible = false;
+          portalGroup.visible = false;
+          smokeSystem.visible = false;
+
+          let targetSpeed = 16;
+          if (STATE.accelerating) targetSpeed = 42;
+          if (STATE.braking) targetSpeed = 0;
+          carSpeed += (targetSpeed - carSpeed) * dt * 4.5;
+
+          setBrakeVisuals(STATE.braking);
+          setNitroVisuals(STATE.accelerating && !STATE.braking);
+
+          if (Math.abs(STATE.joyX) > 0.08 && carSpeed > 0.5) {
+            carGroup.position.x = THREE.MathUtils.clamp(carGroup.position.x + STATE.joyX * 9.5 * dt, -4.6, 4.6);
+            carGroup.rotation.y = THREE.MathUtils.lerp(carGroup.rotation.y, -STATE.joyX * 0.18, dt * 8);
+          } else {
+            carGroup.rotation.y = THREE.MathUtils.lerp(carGroup.rotation.y, 0, dt * 8);
+          }
+
+          scrollCity(carSpeed, dt);
+          spinWheels(carSpeed, dt);
+          updateTrafficAndPedestrians(carSpeed, dt);
+
+          camera.fov = THREE.MathUtils.lerp(camera.fov, STATE.accelerating ? 69 : 60, dt * 4);
+          camera.updateProjectionMatrix();
+          camera.position.lerp(new THREE.Vector3(carGroup.position.x * 0.72, 3.25, 7.6), dt * 5);
+          camera.lookAt(carGroup.position.x * 0.62, 1.15, -14);
+          return;
+        }
+
+        // Modo 4: MISSÃO ATIVA — 3 Faixas (Joystick escolhe faixa, ACEL. ultrapassa e confirma)
+        if (STATE.mode3D === 'mission') {
+          characterGroup.visible = false;
+          portalGroup.visible = true;
+          highlightPortalLane(STATE.selectedLane);
+
+          const targetX = LANE_X[STATE.selectedLane];
+          const dx = targetX - carGroup.position.x;
+          carGroup.position.x += dx * Math.min(1, dt * 11);
+          carGroup.rotation.y = THREE.MathUtils.clamp(-dx * 0.14, -0.25, 0.25);
+          carGroup.rotation.z = THREE.MathUtils.clamp(-dx * 0.04, -0.07, 0.07);
+
+          const isBoosting = STATE.boostTimer > 0;
+          const isConsequence = STATE.consequenceTimer > 0;
+          if (STATE.boostTimer > 0) STATE.boostTimer -= dt;
+          if (STATE.consequenceTimer > 0) STATE.consequenceTimer -= dt;
+
+          let targetSpeed = 25;
+          if (STATE.braking && !isBoosting) targetSpeed = 9;
+          if (isBoosting) targetSpeed = 66;
+          if (isConsequence) targetSpeed = 3;
+
+          carSpeed += (targetSpeed - carSpeed) * dt * (isConsequence ? 9 : 6);
+          setBrakeVisuals((STATE.braking && !isBoosting) || isConsequence);
+          setNitroVisuals(isBoosting && !isConsequence);
+          smokeSystem.visible = isConsequence;
+          if (isConsequence) {
+            carGroup.rotation.y += Math.sin(performance.now() * 0.04) * 0.12;
+          }
+
+          scrollCity(carSpeed, dt);
+          spinWheels(carSpeed, dt);
+          updateTrafficAndPedestrians(carSpeed, dt);
+
+          if (isBoosting) {
+            portalGroup.position.z += 62 * dt;
+            if (portalGroup.position.z > 14) portalGroup.position.z = -56;
+          } else {
+            const rem = Math.max(0, STATE.timerEndAt - Date.now());
+            const progress = 1 - Math.min(1, rem / STATE.timerDurationMs);
+            portalGroup.position.z = THREE.MathUtils.lerp(portalGroup.position.z, -52 + progress * 26, dt * 2.5);
+          }
+
+          camera.fov = THREE.MathUtils.lerp(camera.fov, isBoosting ? 74 : 60, dt * 6);
+          camera.updateProjectionMatrix();
+
+          // Câmara baixa cinematográfica GTA V (+ shake em caso de erro)
+          const shakeX = isConsequence ? (Math.random() - 0.5) * 0.42 : 0;
+          const shakeY = isConsequence ? (Math.random() - 0.5) * 0.24 : 0;
+          camera.position.lerp(new THREE.Vector3(carGroup.position.x * 0.64 + shakeX, 3.15 + shakeY, 7.5), dt * 6);
+          camera.lookAt(carGroup.position.x * 0.58, 1.25, -18);
+        }
+      }
+
+      function scrollCity(speed, dt) {
+        if (roadTexture) roadTexture.offset.y += speed * dt * 0.055;
+        for (const chunk of cityChunks) {
+          chunk.position.z += speed * dt;
+          if (chunk.position.z > 42) chunk.position.z -= cityChunks.length * 30;
+        }
+      }
+
+      function spinWheels(speed, dt) {
+        for (const w of carWheels) w.rotation.x -= speed * dt * 0.45;
+      }
+
+      function setBrakeVisuals(on) {
+        for (const mat of brakeLights) mat.emissiveIntensity = on ? 4.8 : 1.5;
+      }
+
+      function setNitroVisuals(on) {
+        for (const flame of nitroFlames) {
+          flame.visible = on;
+          if (on) flame.scale.set(1, 0.8 + Math.random() * 0.65, 1);
+        }
+      }
+
+      // =========================================================================
+      // MINIMAP / RADAR ESTILO GTA V + VELOCÍMETRO
+      // =========================================================================
+      function renderMinimap() {
+        if (STATE.role !== 'player' || !minimapCtx) return;
+        const w = el.minimapCanvas.width;
+        const h = el.minimapCanvas.height;
+
+        // Fundo azul-noite / preto asfalto
+        minimapCtx.fillStyle = '#111318';
+        minimapCtx.fillRect(0, 0, w, h);
+
+        // Quarteirões urbanos laterais
+        minimapCtx.fillStyle = '#1A2F4B';
+        minimapCtx.fillRect(0, 0, 30, h);
+        minimapCtx.fillRect(w - 30, 0, 30, h);
+
+        // Estrada central de 3 faixas
+        minimapCtx.fillStyle = '#262b36';
+        minimapCtx.fillRect(32, 0, w - 64, h);
+
+        // Separadores de faixas
+        minimapCtx.strokeStyle = 'rgba(247, 243, 233, 0.35)';
+        minimapCtx.setLineDash([4, 4]);
+        minimapCtx.beginPath();
+        minimapCtx.moveTo(32 + (w - 64) / 3, 0);
+        minimapCtx.lineTo(32 + (w - 64) / 3, h);
+        minimapCtx.moveTo(32 + ((w - 64) * 2) / 3, 0);
+        minimapCtx.lineTo(32 + ((w - 64) * 2) / 3, h);
+        minimapCtx.stroke();
+        minimapCtx.setLineDash([]);
+
+        const mapX = (worldX) => w / 2 + (worldX / 6.4) * ((w - 64) / 2);
+
+        // Pórtico das 3 faixas no radar durante a missão
+        if (STATE.mode3D === 'mission' && portalGroup) {
+          const py = Math.max(8, Math.min(h - 14, h * 0.78 + portalGroup.position.z * 1.1));
+          minimapCtx.fillStyle = 'rgba(244, 196, 20, 0.45)';
+          minimapCtx.fillRect(32, py - 2, w - 64, 4);
+          minimapCtx.fillStyle = '#F4C414';
+          minimapCtx.fillRect(mapX(LANE_X[STATE.selectedLane]) - 9, py - 3, 18, 6);
+        }
+
+        // Pontos de trânsito NPC
+        for (const npc of trafficCars) {
+          const ny = h * 0.78 + npc.position.z * 0.85;
+          if (ny >= -4 && ny <= h + 4) {
+            minimapCtx.fillStyle = '#6B7684';
+            minimapCtx.fillRect(mapX(npc.position.x) - 2.5, ny - 4, 5, 8);
+          }
+        }
+
+        // Indicador do jogador (seta Amarelo Capital estilo GTA V)
+        const refX = STATE.mode3D === 'explore_foot' && characterGroup
+          ? characterGroup.position.x
+          : (carGroup ? carGroup.position.x : 0);
+        const px = mapX(refX);
+        const py = h * 0.78;
+
+        minimapCtx.fillStyle = '#F4C414';
+        minimapCtx.beginPath();
+        minimapCtx.moveTo(px, py - 7);
+        minimapCtx.lineTo(px - 5, py + 5);
+        minimapCtx.lineTo(px, py + 2);
+        minimapCtx.lineTo(px + 5, py + 5);
+        minimapCtx.closePath();
+        minimapCtx.fill();
+      }
+
+      function updateClientTimerAndHud() {
+        // Velocímetro e barra RPM (estilo GTA)
+        if (STATE.role === 'player') {
+          const kmh = Math.max(0, Math.round(carSpeed * 3.7));
+          el.speedoValue.textContent = kmh;
+          const rpmPct = Math.min(100, Math.max(8, (kmh / 245) * 100));
+          el.rpmFill.style.width = `${rpmPct}%`;
+        }
+
+        if (!STATE.missionActive) return;
+        const remainingMs = Math.max(0, STATE.timerEndAt - Date.now());
+        const secs = Math.ceil(remainingMs / 1000);
+        const pct = Math.max(0, Math.min(100, (remainingMs / STATE.timerDurationMs) * 100));
+
+        if (STATE.role === 'player') {
+          el.playerTimerBadge.textContent = `${secs}s`;
+          el.playerTimerBadge.classList.toggle('urgent', secs <= 4);
+          el.playerTimerFill.style.width = `${pct}%`;
+          el.miniTimerBar.style.width = `${pct}%`;
+          el.miniTimerBar.style.background = secs <= 4 ? '#E53935' : '#F4C414';
+        } else if (STATE.role === 'host') {
+          el.hostTimerBadge.textContent = `${secs}s`;
+          el.hostTimerBadge.classList.toggle('urgent', secs <= 4);
+          el.hostTimerFill.style.width = `${pct}%`;
+        }
+      }
+
+      // =========================================================================
+      // CONTROLOS TÁTEIS (JOYSTICK + ACEL. + TRAV. + ENTRAR/SAIR + TECLADO)
+      // =========================================================================
+      function setSelectedLane(index) {
+        if (STATE.answeredCurrent) return;
+        const clamped = Math.max(0, Math.min(2, index));
+        STATE.selectedLane = clamped;
+        const names = ['A · Esquerda', 'B · Centro', 'C · Direita'];
+        el.playerLaneLabel.textContent = `Faixa ${names[clamped]} · ACEL. para ultrapassar`;
+        el.laneCards.forEach((card, i) => card.classList.toggle('active', i === clamped));
+      }
+
+      function confirmMissionAnswer() {
+        if (!STATE.missionActive || STATE.answeredCurrent) return;
+        STATE.answeredCurrent = true;
+        STATE.boostTimer = 0.9;
+
+        el.laneCards.forEach((card, i) => card.classList.toggle('locked', i === STATE.selectedLane));
+        el.playerLaneLabel.textContent = 'A acelerar pela faixa escolhida...';
+
+        socket.emit('submit_answer', { laneIndex: STATE.selectedLane }, (res) => {
+          if (res && !res.ok && res.error) {
+            el.playerLaneLabel.textContent = res.error;
+          }
+        });
+      }
+
+      // Seletor de veículo no ecrã inicial
+      el.carPicker.querySelectorAll('.car-swatch').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          el.carPicker.querySelectorAll('.car-swatch').forEach((b) => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          applyCarStyle(btn.dataset.car);
+        });
+      });
+
+      // Joystick multi-touch compatível com iPhone/iPad
+      let activeJoyPointer = null;
+      const joyRadius = 40;
+
+      function updateJoystickFromPointer(clientX, clientY) {
+        const rect = el.joystickZone.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        let dx = clientX - cx;
+        let dy = clientY - cy;
+        const dist = Math.hypot(dx, dy);
+        if (dist > joyRadius) {
+          dx = (dx / dist) * joyRadius;
+          dy = (dy / dist) * joyRadius;
+        }
+        el.joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+        STATE.joyX = dx / joyRadius;
+        STATE.joyY = dy / joyRadius;
+
+        if (STATE.mode3D === 'mission' && !STATE.answeredCurrent) {
+          if (STATE.joyX < -0.35) setSelectedLane(0);
+          else if (STATE.joyX > 0.35) setSelectedLane(2);
+          else if (Math.abs(STATE.joyX) < 0.22) setSelectedLane(1);
+        }
+      }
+
+      function resetJoystick() {
+        activeJoyPointer = null;
+        STATE.joyActive = false;
+        STATE.joyX = 0;
+        STATE.joyY = 0;
+        el.joystickKnob.style.transform = 'translate(0px, 0px)';
+      }
+
+      el.joystickZone.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        activeJoyPointer = e.pointerId;
+        STATE.joyActive = true;
+        el.joystickZone.setPointerCapture(e.pointerId);
+        updateJoystickFromPointer(e.clientX, e.clientY);
+      });
+      el.joystickZone.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== activeJoyPointer) return;
+        e.preventDefault();
+        updateJoystickFromPointer(e.clientX, e.clientY);
+      });
+      el.joystickZone.addEventListener('pointerup', (e) => {
+        if (e.pointerId === activeJoyPointer) resetJoystick();
+      });
+      el.joystickZone.addEventListener('pointercancel', (e) => {
+        if (e.pointerId === activeJoyPointer) resetJoystick();
+      });
+
+      el.laneCards.forEach((card) => {
+        card.addEventListener('click', () => {
+          if (STATE.mode3D === 'mission' && !STATE.answeredCurrent) {
+            setSelectedLane(Number(card.dataset.lane));
+          }
+        });
+      });
+
+      el.btnAccel.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        STATE.accelerating = true;
+        el.btnAccel.classList.add('pressed');
+        if (STATE.mode3D === 'mission') confirmMissionAnswer();
+      });
+      const releaseAccel = () => {
+        STATE.accelerating = false;
+        el.btnAccel.classList.remove('pressed');
+      };
+      el.btnAccel.addEventListener('pointerup', releaseAccel);
+      el.btnAccel.addEventListener('pointercancel', releaseAccel);
+      el.btnAccel.addEventListener('pointerleave', releaseAccel);
+
+      el.btnBrake.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        STATE.braking = true;
+        el.btnBrake.classList.add('pressed');
+      });
+      const releaseBrake = () => {
+        STATE.braking = false;
+        el.btnBrake.classList.remove('pressed');
+      };
+      el.btnBrake.addEventListener('pointerup', releaseBrake);
+      el.btnBrake.addEventListener('pointercancel', releaseBrake);
+      el.btnBrake.addEventListener('pointerleave', releaseBrake);
+
+      el.btnCarToggle.addEventListener('click', () => {
+        if (STATE.mode3D === 'explore_foot') {
+          if (characterGroup.position.distanceTo(carGroup.position) < 4.4) {
+            STATE.mode3D = 'explore_drive';
+            el.exploreTipBox.textContent = 'A conduzir em Capital City. Aguarda o início das missões!';
+            el.btnCarToggle.disabled = false;
+            el.btnCarToggle.classList.add('ready');
+            el.btnCarToggle.textContent = 'SAIR DO CARRO';
+            el.accelSubLabel.textContent = 'Acelerar';
+          }
+        } else if (STATE.mode3D === 'explore_drive') {
+          STATE.mode3D = 'explore_foot';
+          carSpeed = 0;
+          characterGroup.position.set(THREE.MathUtils.clamp(carGroup.position.x - 2.4, -7.8, 7.8), 0, carGroup.position.z + 0.5);
+          el.exploreTipBox.textContent = 'A pé na cidade. Aproxima-te do supercarro para entrares novamente.';
+          el.btnCarToggle.textContent = 'ENTRAR NO CARRO';
+        }
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+        if (STATE.mode3D === 'mission') {
+          if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') setSelectedLane(Math.max(0, STATE.selectedLane - 1));
+          if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') setSelectedLane(Math.min(2, STATE.selectedLane + 1));
+          if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+            e.preventDefault();
+            confirmMissionAnswer();
+          }
+        } else if (STATE.mode3D === 'explore_foot' || STATE.mode3D === 'explore_drive') {
+          if (e.key === 'ArrowLeft' || e.key === 'a') STATE.joyX = -1;
+          if (e.key === 'ArrowRight' || e.key === 'd') STATE.joyX = 1;
+          if (e.key === 'ArrowUp' || e.key === 'w') { STATE.joyY = -1; STATE.accelerating = true; }
+          if (e.key === 'ArrowDown' || e.key === 's') { STATE.joyY = 1; STATE.braking = true; }
+          if (e.key === 'e' || e.key === 'E') el.btnCarToggle.click();
+        }
+      });
+      window.addEventListener('keyup', (e) => {
+        if (['ArrowLeft', 'ArrowRight', 'a', 'd'].includes(e.key)) STATE.joyX = 0;
+        if (['ArrowUp', 'ArrowDown', 'w', 's'].includes(e.key)) {
+          STATE.joyY = 0;
+          STATE.accelerating = false;
+          STATE.braking = false;
+        }
+      });
+
+      // =========================================================================
+      // MULTIJOGADOR SOCKET.IO + RANKING (TOP 4 + POSIÇÃO EXATA)
+      // =========================================================================
+      function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, (m) => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[m]));
+      }
+
+      function renderTop4List(container, ranking, highlightPlayerId) {
+        container.innerHTML = '';
+        if (!ranking || !ranking.top4 || ranking.top4.length === 0) {
+          container.innerHTML = '<div style="font-size:0.82rem; color:var(--cinza-aco); text-align:center;">Ainda sem pontuações registadas.</div>';
+          return;
+        }
+        ranking.top4.forEach((entry) => {
+          const row = document.createElement('div');
+          row.className = 'top4-row' + (entry.id === highlightPlayerId ? ' me' : '');
+          row.innerHTML = `
+            <div><span class="rank-badge">${entry.rank}</span>${escapeHtml(entry.name)}</div>
+            <div style="color:var(--amarelo-capital);">${entry.score} pts</div>
+          `;
+          container.appendChild(row);
+        });
+      }
+
+      function showError(msg) {
+        el.homeError.textContent = msg;
+        el.homeError.classList.remove('hidden');
+      }
+
+      function triggerScreenFx(type) {
+        el.screenFx.className = type === 'win' ? 'fx-win' : (type === 'fail' ? 'fx-fail' : '');
+        setTimeout(() => { el.screenFx.className = ''; }, 750);
+      }
+
+      el.btnCreateRoom.addEventListener('click', () => {
+        el.homeError.classList.add('hidden');
+        el.btnCreateRoom.disabled = true;
+        socket.emit('create_room', { origin: window.location.origin }, (res) => {
+          el.btnCreateRoom.disabled = false;
+          if (!res || !res.ok) return showError(res?.error || 'Erro ao criar sala.');
+
+          STATE.role = 'host';
+          STATE.roomCode = res.roomCode;
+          STATE.mode3D = 'ambient';
+
+          el.hostRoomPill.textContent = `SALA: ${res.roomCode}`;
+          el.hostCodeBig.textContent = res.roomCode;
+          el.hostQrImg.src = res.qrDataUrl;
+          el.hostJoinUrl.textContent = res.joinUrl;
+
+          el.screenHome.classList.add('hidden');
+          el.screenHost.classList.remove('hidden');
+        });
+      });
+
+      el.btnJoin.addEventListener('click', () => {
+        el.homeError.classList.add('hidden');
+        const name = el.inputName.value.trim();
+        const code = el.inputCode.value.trim().toUpperCase();
+        if (!name) return showError('Introduz o teu nome para entrar.');
+        if (!code) return showError('Introduz o código da sala.');
+
+        el.btnJoin.disabled = true;
+        socket.emit('join_room', { roomCode: code, name, playerId: STATE.playerId }, (res) => {
+          el.btnJoin.disabled = false;
+          if (!res || !res.ok) return showError(res?.error || 'Não foi possível entrar na sala.');
+
+          STATE.role = 'player';
+          STATE.roomCode = res.roomCode;
+          STATE.playerName = res.name;
+          STATE.score = res.ranking ? res.ranking.myScore : 0;
+
+          el.playerHudName.textContent = STATE.playerName;
+          el.playerHudZone.textContent = `Sala ${STATE.roomCode} · Avenida Capital`;
+          el.playerHudScore.textContent = `${STATE.score} PTS`;
+
+          el.screenHome.classList.add('hidden');
+          el.screenPlayer.classList.remove('hidden');
+
+          if (res.currentMission) {
+            enterMissionViewPlayer(res.currentMission);
+            if (res.currentMission.alreadyAnswered) STATE.answeredCurrent = true;
+          } else {
+            enterExploreModePlayer();
+          }
+        });
+      });
+
+      el.btnHostStart.addEventListener('click', () => socket.emit('host_start_game', {}));
+      el.btnHostForceNext.addEventListener('click', () => socket.emit('host_next_mission', {}));
+      el.btnModalNext.addEventListener('click', () => {
+        el.overlayModal.classList.add('hidden');
+        socket.emit('host_next_mission', {});
+      });
+      el.btnModalRestart.addEventListener('click', () => { window.location.href = window.location.origin; });
+
+      function enterExploreModePlayer() {
+        STATE.missionActive = false;
+        STATE.mode3D = 'explore_foot';
+        if (carGroup && characterGroup) {
+          carGroup.position.set(0, 0, 0);
+          characterGroup.position.set(-4.8, 0, 3.0);
+        }
+        el.overlayModal.classList.add('hidden');
+        el.playerMissionHud.classList.add('hidden');
+        el.playerTimerBadge.classList.add('hidden');
+        el.exploreTipBox.classList.remove('hidden');
+        el.btnCarToggle.classList.remove('hidden');
+        el.accelSubLabel.textContent = 'Acelerar';
+      }
+
+      function enterMissionViewPlayer(mission) {
+        STATE.missionActive = true;
+        STATE.answeredCurrent = false;
+        STATE.mode3D = 'mission';
+        STATE.boostTimer = 0;
+        STATE.consequenceTimer = 0;
+        STATE.timerDurationMs = mission.durationMs || 15000;
+        STATE.timerEndAt = Date.now() + (mission.remainingMs || 15000);
+
+        if (carGroup && portalGroup) {
+          carGroup.position.set(0, 0, 0);
+          carGroup.rotation.set(0, 0, 0);
+          portalGroup.position.z = -52;
+        }
+
+        applyCityAtmosphere(mission.theme, mission.backdrop);
+
+        el.overlayModal.classList.add('hidden');
+        el.exploreTipBox.classList.add('hidden');
+        el.btnCarToggle.classList.add('hidden');
+        el.playerMissionHud.classList.remove('hidden');
+        el.playerTimerBadge.classList.remove('hidden');
+
+        el.playerHudZone.textContent = `Sala ${STATE.roomCode} · ${mission.zoneName || 'Capital City'}`;
+        el.playerMissionLabel.textContent = `Missão ${mission.missionNumber} de ${mission.totalMissions}`;
+        el.playerQuestionText.textContent = mission.question;
+        mission.options.forEach((opt, idx) => {
+          el.playerOpts[idx].textContent = opt;
+          el.laneCards[idx].classList.remove('locked');
+        });
+        el.accelSubLabel.textContent = 'Confirmar';
+        setSelectedLane(1);
+      }
+
+      socket.on('lobby_update', (data) => {
+        if (STATE.role !== 'host') return;
+        el.hostPlayersPill.textContent = `${data.players.length} Jogador${data.players.length === 1 ? '' : 'es'}`;
+        el.hostPlayersList.innerHTML = data.players.length === 0
+          ? '<span style="font-size:0.8rem; color:var(--cinza-aco);">A aguardar participantes...</span>'
+          : data.players.map((p) => `<span class="player-chip">${escapeHtml(p.name)}</span>`).join('');
+      });
+
+      socket.on('answer_progress', (data) => {
+        if (STATE.role === 'host') {
+          el.hostAnswerProgress.textContent = `Respostas: ${data.answeredCount} / ${data.totalPlayers}`;
+        }
+      });
+
+      socket.on('mission_started', (mission) => {
+        STATE.missionActive = true;
+        STATE.timerDurationMs = mission.durationMs || 15000;
+        STATE.timerEndAt = Date.now() + (mission.remainingMs || 15000);
+        el.overlayModal.classList.add('hidden');
+
+        if (STATE.role === 'host') {
+          STATE.mode3D = 'ambient';
+          applyCityAtmosphere(mission.theme, mission.backdrop);
+          el.hostLobbyCard.classList.add('hidden');
+          el.hostMissionCard.classList.remove('hidden');
+          el.hostMissionCounter.textContent = `Missão ${mission.missionNumber} de ${mission.totalMissions}`;
+          el.hostQuestionText.textContent = mission.question;
+          mission.options.forEach((opt, i) => { el.hostOpts[i].textContent = opt; });
+        } else if (STATE.role === 'player') {
+          enterMissionViewPlayer(mission);
+        }
+      });
+
+      socket.on('timer_sync', (data) => {
+        if (!STATE.missionActive) return;
+        STATE.timerDurationMs = data.durationMs || 15000;
+        STATE.timerEndAt = Date.now() + data.remainingMs;
+      });
+
+      // Resultado individual imediato + consequência 3D na estrada
+      socket.on('answer_result', (data) => {
+        if (STATE.role !== 'player') return;
+        STATE.score = data.totalScore;
+        el.playerHudScore.textContent = `${STATE.score} PTS`;
+
+        if (data.correct) {
+          STATE.boostTimer = 0.95;
+          triggerScreenFx('win');
+        } else {
+          STATE.boostTimer = 0;
+          STATE.consequenceTimer = 0.9;
+          triggerScreenFx('fail');
+        }
+
+        const delayMs = data.timedOut ? 150 : 560;
+        setTimeout(() => {
+          if (!STATE.missionActive && el.overlayModal.dataset.mode === 'summary') return;
+
+          el.overlayModal.dataset.mode = 'individual';
+          el.modalBannerImg.classList.add('hidden');
+          el.modalMissionTag.textContent = `Missão ${data.missionNumber} de ${data.totalMissions}`;
+          el.modalTitle.textContent = data.statusText;
+          el.modalTitle.className = 'status-banner ' + (data.correct ? 'win' : 'fail');
+          el.modalSubtitle.textContent = data.subText;
+
+          el.modalPoints.textContent = data.pointsEarned > 0
+            ? `+${data.pointsEarned} pontos (Total: ${data.totalScore} pts)`
+            : `0 pontos (Total: ${data.totalScore} pts)`;
+          el.modalPoints.classList.remove('hidden');
+          el.modalExplanation.classList.add('hidden');
+
+          if (data.ranking && data.ranking.positionText) {
+            el.modalPosition.textContent = data.ranking.positionText;
+            el.modalPosition.classList.remove('hidden');
+          } else {
+            el.modalPosition.classList.add('hidden');
+          }
+
+          renderTop4List(el.modalTop4, data.ranking, STATE.playerId);
+          el.modalWaitMsg.textContent = 'A aguardar o encerramento dos 15 segundos...';
+          el.modalWaitMsg.classList.remove('hidden');
+          el.btnModalNext.classList.add('hidden');
+          el.btnModalRestart.classList.add('hidden');
+          el.overlayModal.classList.remove('hidden');
+        }, delayMs);
+      });
+
+      // Classificação da missão
+      socket.on('mission_summary', (data) => {
+        STATE.missionActive = false;
+        el.overlayModal.dataset.mode = 'summary';
+        el.modalBannerImg.classList.add('hidden');
+        el.modalMissionTag.textContent = `Classificação · Missão ${data.missionNumber} de ${data.totalMissions}`;
+
+        if (STATE.role === 'player' && data.playerResult) {
+          el.modalTitle.textContent = data.playerResult.statusText;
+          el.modalTitle.className = 'status-banner ' + (data.playerResult.correct ? 'win' : 'fail');
+          el.modalPoints.textContent = data.playerResult.pointsEarned > 0
+            ? `+${data.playerResult.pointsEarned} pontos nesta missão`
+            : '0 pontos nesta missão';
+          el.modalPoints.classList.remove('hidden');
+        } else {
+          el.modalTitle.textContent = `Fim da Missão ${data.missionNumber}`;
+          el.modalTitle.className = 'status-banner gold';
+          el.modalPoints.classList.add('hidden');
+        }
+
+        el.modalSubtitle.textContent = `Resposta correta: Faixa ${data.correctLetter} — ${data.correctText}`;
+        el.modalExplanation.textContent = data.explanation;
+        el.modalExplanation.classList.remove('hidden');
+
+        if (STATE.role === 'player' && data.ranking && data.ranking.positionText) {
+          el.modalPosition.textContent = data.ranking.positionText;
+          el.modalPosition.classList.remove('hidden');
+        } else {
+          el.modalPosition.classList.add('hidden');
+        }
+
+        renderTop4List(el.modalTop4, data.ranking, STATE.role === 'player' ? STATE.playerId : null);
+
+        if (STATE.role === 'host') {
+          el.btnModalNext.textContent = data.isLastMission
+            ? 'Ver Classificação Final'
+            : `Avançar para Missão ${data.missionNumber + 1} de ${data.totalMissions}`;
+          el.btnModalNext.classList.remove('hidden');
+          el.modalWaitMsg.classList.add('hidden');
+        } else {
+          el.btnModalNext.classList.add('hidden');
+          el.modalWaitMsg.textContent = data.isLastMission
+            ? 'A aguardar a classificação final pelo apresentador...'
+            : 'A aguardar que o apresentador inicie a próxima missão...';
+          el.modalWaitMsg.classList.remove('hidden');
+        }
+
+        el.btnModalRestart.classList.add('hidden');
+        el.overlayModal.classList.remove('hidden');
+      });
+
+      // Classificação final acumulada (após 7.ª missão)
+      socket.on('game_finished', (data) => {
+        STATE.missionActive = false;
+        el.overlayModal.dataset.mode = 'final';
+        el.modalBannerImg.classList.remove('hidden');
+        el.modalMissionTag.textContent = `Capital City · Grupo 16 · ${data.totalMissions} Missões`;
+        el.modalTitle.textContent = 'CLASSIFICAÇÃO FINAL';
+        el.modalTitle.className = 'status-banner gold';
+        el.modalSubtitle.textContent = 'Pontuação acumulada — Quiz de Capital Próprio';
+        el.modalPoints.classList.add('hidden');
+        el.modalExplanation.classList.add('hidden');
+
+        if (STATE.role === 'player' && data.ranking && data.ranking.positionText) {
+          el.modalPosition.textContent = `${data.ranking.positionText} (${data.ranking.myScore} pts acumulados)`;
+          el.modalPosition.classList.remove('hidden');
+        } else {
+          el.modalPosition.classList.add('hidden');
+        }
+
+        renderTop4List(el.modalTop4, data.ranking, STATE.role === 'player' ? STATE.playerId : null);
+        el.modalWaitMsg.classList.add('hidden');
+        el.btnModalNext.classList.add('hidden');
+        el.btnModalRestart.classList.remove('hidden');
+        el.overlayModal.classList.remove('hidden');
+      });
+
+      initThreeScene();
+    })();
+  </script>
+</body>
+</html>
