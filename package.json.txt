@@ -1,0 +1,17 @@
+{
+  "name": "capital-city-gta-g16",
+  "version": "3.0.0",
+  "description": "Capital City - Grupo 16 | Jogo 3D estilo GTA V sobre Capital Próprio (Disciplina de Auditoria)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.7.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
